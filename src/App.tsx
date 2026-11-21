@@ -6,6 +6,7 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { lazy, Suspense, useEffect, useState, type ComponentType } from 'react';
 import { Footer } from './components/Footer';
+import { LaunchGateway } from './components/LaunchGateway';
 import { Navbar } from './components/Navbar';
 import { AppProvider } from './context/AppContext';
 import { DivisionId } from './lib/platformData';
@@ -56,6 +57,13 @@ function AppShell() {
     typeof window !== 'undefined' ? parseRouteFromHash(window.location.hash) : 'home',
   );
   const [contactDivision, setContactDivision] = useState<DivisionId>('cloud');
+  const [landingPhase, setLandingPhase] = useState<'waiting' | 'jumping' | 'settled'>(() => {
+    if (typeof window === 'undefined') return 'settled';
+    const initialRoute = parseRouteFromHash(window.location.hash);
+    return initialRoute === 'auth' || initialRoute === 'admin' || initialRoute === 'dashboard'
+      ? 'settled'
+      : 'waiting';
+  });
   const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
@@ -78,6 +86,15 @@ function AppShell() {
       setRoute(nextRoute);
     }
     window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+  };
+
+  const handleEnterFromGateway = (targetRoute: PageRoute = 'home') => {
+    setLandingPhase('jumping');
+    if (targetRoute !== route) {
+      navigateTo(targetRoute);
+    } else {
+      window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    }
   };
 
   const renderPage = () => {
@@ -128,8 +145,8 @@ function AppShell() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-[#F4F4F5] text-[#0A0A0B] flex flex-col">
+  const siteContent = (
+    <>
       <Navbar currentRoute={route} onNavigate={(r) => navigateTo(r)} />
       <main className="flex-1">
         <AnimatePresence mode="wait" initial={false}>
@@ -145,6 +162,44 @@ function AppShell() {
         </AnimatePresence>
       </main>
       <Footer onNavigate={(r) => navigateTo(r)} />
+    </>
+  );
+
+  return (
+    <div className="min-h-screen bg-[#F4F4F5] text-[#0A0A0B] flex flex-col">
+      <LaunchGateway
+        visible={landingPhase === 'waiting'}
+        onEnterSite={handleEnterFromGateway}
+      />
+
+      {landingPhase === 'settled' ? (
+        <div className="flex flex-col min-h-screen">{siteContent}</div>
+      ) : (
+        <motion.div
+          animate={
+            shouldReduceMotion
+              ? { opacity: 1, scale: 1, y: 0 }
+              : landingPhase === 'waiting'
+                ? { scale: 0.9, y: 38, opacity: 0.14 }
+                : { scale: 1, y: 0, opacity: 1 }
+          }
+          transition={
+            shouldReduceMotion
+              ? { duration: 0.2 }
+              : landingPhase === 'jumping'
+                ? { duration: 0.64, ease: [0.16, 1, 0.3, 1] }
+                : { duration: 0.35 }
+          }
+          onAnimationComplete={() => {
+            if (landingPhase === 'jumping') {
+              setLandingPhase('settled');
+            }
+          }}
+          className="flex flex-col min-h-screen origin-top"
+        >
+          {siteContent}
+        </motion.div>
+      )}
     </div>
   );
 }
