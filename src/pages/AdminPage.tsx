@@ -18,6 +18,7 @@ import {
   Users,
 } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { Surface3D } from '../components/Surface3D';
 import { useAppContext, type UserRole } from '../context/AppContext';
 import { ApiError, apiRequest } from '../lib/api';
 import { PageRoute } from '../types/navigation';
@@ -246,21 +247,25 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
 
   if (!user || !isAdminRole) {
     return (
-      <div className="bg-black text-white min-h-[70vh] flex items-center justify-center px-6">
-        <div className="max-w-md w-full rounded-2xl bg-[#08080F] border border-white/[0.12] p-8 text-center space-y-4">
-          <Lock className="w-8 h-8 text-rose-400 mx-auto" />
-          <h1 className="text-2xl font-bold text-white">RBAC Admin Access Required</h1>
-          <p className="text-sm text-neutral-400">
-            This management console requires an authenticated Super Admin, Admin, or Staff account.
-          </p>
-          <button
-            type="button"
-            onClick={() => onNavigate('auth')}
-            className="w-full py-2.5 px-5 text-xs font-semibold text-black bg-white rounded-lg hover:bg-neutral-200 cursor-pointer"
-          >
-            Sign In / Claim Initial Admin
-          </button>
-        </div>
+      <div className="bg-[#F4F4F5] text-[#0A0A0B] min-h-[70vh] flex items-center justify-center px-6">
+        <Surface3D intensity={5} className="max-w-md w-full">
+          <div className="p-8 text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#0A0A0B] flex items-center justify-center mx-auto">
+              <Lock className="w-6 h-6 text-rose-400" />
+            </div>
+            <h1 className="text-2xl font-bold text-[#0A0A0B]">RBAC Admin Access Required</h1>
+            <p className="text-sm text-neutral-600">
+              This management console requires an authenticated Super Admin, Admin, or Staff account.
+            </p>
+            <button
+              type="button"
+              onClick={() => onNavigate('auth')}
+              className="w-full py-2.5 px-5 text-xs font-semibold text-white bg-[#0A0A0B] rounded-lg hover:bg-neutral-800 cursor-pointer"
+            >
+              Sign In / Claim Initial Admin
+            </button>
+          </div>
+        </Surface3D>
       </div>
     );
   }
@@ -416,15 +421,23 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
     { id: 'cms', label: 'Blog, CMS & Settings', icon: FileText },
   ];
 
+  const cardClass =
+    'rounded-2xl bg-white border border-black/[0.08] shadow-[0_14px_40px_-15px_rgba(10,10,11,0.08)] p-6';
+  const rowClass = 'rounded-xl bg-[#F8F8FA] border border-black/[0.08] p-3.5 text-xs';
+  const inputClass =
+    'w-full rounded-lg bg-[#F8F8FA] border border-black/[0.12] px-3 py-2 text-xs text-[#0A0A0B] focus:outline-none focus:border-black';
+  const selectClass =
+    'rounded bg-white border border-black/[0.15] px-2.5 py-1 text-xs text-[#0A0A0B] focus:outline-none focus:border-black';
+
   return (
-    <div className="bg-black text-white min-h-screen py-10">
+    <div className="bg-[#F4F4F5] text-[#0A0A0B] min-h-screen py-10">
       <div className="max-w-[1380px] mx-auto px-4 sm:px-6 space-y-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-white/[0.08]">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-black/[0.08]">
           <div>
-            <div className="text-xs font-mono text-violet-300">
-              HELZERX ADMIN CONSOLE · {user.role.toUpperCase()}
+            <div className="text-xs font-semibold text-neutral-500 capitalize">
+              HelzerX Admin Console · {user.role.replace(/_/g, ' ')}
             </div>
-            <h1 className="mt-1 text-2xl md:text-3xl font-bold text-white">
+            <h1 className="mt-1 text-2xl md:text-3xl font-extrabold text-[#0A0A0B] tracking-tight">
               Enterprise Operations &amp; CMS
             </h1>
           </div>
@@ -432,7 +445,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
             <button
               type="button"
               onClick={() => void loadAdmin()}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-neutral-200 border border-white/15 rounded-lg hover:border-white/30 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[#0A0A0B] bg-white border border-black/15 rounded-lg hover:border-black/35 cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               <span>Sync All</span>
@@ -441,7 +454,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
         </div>
 
         {feedback && (
-          <div className="rounded-xl bg-violet-500/15 border border-violet-400/35 px-4 py-3 text-xs text-violet-100">
+          <div className="rounded-xl bg-[#0A0A0C] text-white border border-black px-4 py-3 text-xs font-medium shadow-sm">
             {feedback}
           </div>
         )}
@@ -457,8 +470,8 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                 onClick={() => setTab(t.id)}
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
                   active
-                    ? 'bg-white text-black border-white'
-                    : 'bg-[#08080F] text-neutral-300 border-white/[0.1] hover:border-white/25'
+                    ? 'bg-[#0A0A0B] text-white border-[#0A0A0B]'
+                    : 'bg-white text-neutral-700 border-black/[0.1] hover:border-black/30'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -469,8 +482,8 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
         </div>
 
         {loading || !overview ? (
-          <div className="py-16 flex items-center justify-center gap-2 text-sm text-neutral-400">
-            <Loader2 className="w-4 h-4 animate-spin text-violet-300" />
+          <div className="py-16 flex items-center justify-center gap-2 text-sm text-neutral-600">
+            <Loader2 className="w-4 h-4 animate-spin text-[#0A0A0B]" />
             <span>Loading enterprise management records...</span>
           </div>
         ) : (
@@ -479,52 +492,64 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
             {tab === 'overview' && (
               <div className="space-y-8">
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                  <div className="rounded-2xl bg-[#08080F] border border-white/[0.1] p-5">
-                    <div className="text-xs text-neutral-400">Total Users</div>
-                    <div className="mt-2 font-mono text-2xl font-bold text-white tabular-nums">
-                      {overview.metrics.totalUsers}
+                  <Surface3D intensity={12} delay={0.03}>
+                    <div className="p-5">
+                      <div className="text-xs text-neutral-600">Total Users</div>
+                      <div className="mt-2 text-2xl font-extrabold tracking-tight text-[#0A0A0B] tabular-nums">
+                        {overview.metrics.totalUsers}
+                      </div>
                     </div>
-                  </div>
-                  <div className="rounded-2xl bg-[#08080F] border border-white/[0.1] p-5">
-                    <div className="text-xs text-neutral-400">Paid Revenue</div>
-                    <div className="mt-2 font-mono text-2xl font-bold text-emerald-300 tabular-nums">
-                      ${overview.metrics.totalRevenue.toLocaleString()}
+                  </Surface3D>
+                  <Surface3D intensity={12} delay={0.06}>
+                    <div className="p-5">
+                      <div className="text-xs text-neutral-600">Paid Revenue</div>
+                      <div className="mt-2 text-2xl font-extrabold tracking-tight text-emerald-700 tabular-nums">
+                        ${overview.metrics.totalRevenue.toLocaleString()}
+                      </div>
                     </div>
-                  </div>
-                  <div className="rounded-2xl bg-[#08080F] border border-white/[0.1] p-5">
-                    <div className="text-xs text-neutral-400">Total Orders</div>
-                    <div className="mt-2 font-mono text-2xl font-bold text-white tabular-nums">
-                      {overview.metrics.totalOrders}
+                  </Surface3D>
+                  <Surface3D intensity={12} delay={0.09}>
+                    <div className="p-5">
+                      <div className="text-xs text-neutral-600">Total Orders</div>
+                      <div className="mt-2 text-2xl font-extrabold tracking-tight text-[#0A0A0B] tabular-nums">
+                        {overview.metrics.totalOrders}
+                      </div>
                     </div>
-                  </div>
-                  <div className="rounded-2xl bg-[#08080F] border border-white/[0.1] p-5">
-                    <div className="text-xs text-neutral-400">Active Servers</div>
-                    <div className="mt-2 font-mono text-2xl font-bold text-cyan-300 tabular-nums">
-                      {overview.metrics.activeServers}
+                  </Surface3D>
+                  <Surface3D intensity={12} delay={0.12}>
+                    <div className="p-5">
+                      <div className="text-xs text-neutral-600">Active Servers</div>
+                      <div className="mt-2 text-2xl font-extrabold tracking-tight text-[#0A0A0B] tabular-nums">
+                        {overview.metrics.activeServers}
+                      </div>
                     </div>
-                  </div>
-                  <div className="rounded-2xl bg-[#08080F] border border-white/[0.1] p-5">
-                    <div className="text-xs text-neutral-400">Studio Queue</div>
-                    <div className="mt-2 font-mono text-2xl font-bold text-violet-300 tabular-nums">
-                      {overview.metrics.pendingProjects}
+                  </Surface3D>
+                  <Surface3D intensity={12} delay={0.15}>
+                    <div className="p-5">
+                      <div className="text-xs text-neutral-600">Studio Queue</div>
+                      <div className="mt-2 text-2xl font-extrabold tracking-tight text-[#0A0A0B] tabular-nums">
+                        {overview.metrics.pendingProjects}
+                      </div>
                     </div>
-                  </div>
-                  <div className="rounded-2xl bg-[#08080F] border border-white/[0.1] p-5">
-                    <div className="text-xs text-neutral-400">Open Tickets</div>
-                    <div className="mt-2 font-mono text-2xl font-bold text-amber-300 tabular-nums">
-                      {overview.metrics.openTickets}
+                  </Surface3D>
+                  <Surface3D intensity={12} delay={0.18}>
+                    <div className="p-5">
+                      <div className="text-xs text-neutral-600">Open Tickets</div>
+                      <div className="mt-2 text-2xl font-extrabold tracking-tight text-amber-700 tabular-nums">
+                        {overview.metrics.openTickets}
+                      </div>
                     </div>
-                  </div>
+                  </Surface3D>
                 </div>
 
-                <div className="rounded-2xl bg-[#08080C] border border-white/[0.1] p-6 space-y-4">
-                  <h2 className="text-base font-bold text-white flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-cyan-300" />
+                <div className={`${cardClass} space-y-4`}>
+                  <h2 className="text-base font-bold text-[#0A0A0B] flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-[#0A0A0B]" />
                     <span>Security Audit Logs</span>
                   </h2>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs">
-                      <thead className="text-neutral-400 border-b border-white/[0.08]">
+                      <thead className="text-neutral-500 border-b border-black/[0.08]">
                         <tr>
                           <th className="py-2 pr-4">Action</th>
                           <th className="py-2 pr-4">Actor</th>
@@ -533,15 +558,17 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                           <th className="py-2">Timestamp</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-white/[0.06] font-mono tabular-nums">
+                      <tbody className="divide-y divide-black/[0.06] tabular-nums">
                         {overview.auditLogs.map((log) => (
                           <tr key={log.id}>
-                            <td className="py-2 pr-4 text-cyan-300">{log.action}</td>
-                            <td className="py-2 pr-4 text-white">{log.actor_email}</td>
-                            <td className="py-2 pr-4 text-neutral-400">
+                            <td className="py-2 pr-4 font-semibold text-[#0A0A0B]">
+                              {log.action}
+                            </td>
+                            <td className="py-2 pr-4 text-[#0A0A0B]">{log.actor_email}</td>
+                            <td className="py-2 pr-4 text-neutral-600">
                               {log.target_type}:{log.target_id}
                             </td>
-                            <td className="py-2 pr-4 text-neutral-300">{log.details}</td>
+                            <td className="py-2 pr-4 text-neutral-700">{log.details}</td>
                             <td className="py-2 text-neutral-500">
                               {new Date(log.created_at).toLocaleString()}
                             </td>
@@ -556,11 +583,13 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
 
             {/* 2. USERS & RBAC */}
             {tab === 'users' && (
-              <div className="rounded-2xl bg-[#08080C] border border-white/[0.1] p-6 space-y-4">
-                <h2 className="text-lg font-bold text-white">Registered Users &amp; RBAC Roles</h2>
+              <div className={`${cardClass} space-y-4`}>
+                <h2 className="text-lg font-bold text-[#0A0A0B]">
+                  Registered Users &amp; RBAC Roles
+                </h2>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="text-neutral-400 border-b border-white/[0.08]">
+                    <thead className="text-neutral-500 border-b border-black/[0.08]">
                       <tr>
                         <th className="py-2 pr-4">Name</th>
                         <th className="py-2 pr-4">Email</th>
@@ -569,12 +598,12 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                         <th className="py-2">Account Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/[0.06]">
+                    <tbody className="divide-y divide-black/[0.06]">
                       {overview.users.map((u) => (
                         <tr key={u.id}>
-                          <td className="py-2.5 pr-4 font-semibold text-white">{u.name}</td>
-                          <td className="py-2.5 pr-4 font-mono text-neutral-300">{u.email}</td>
-                          <td className="py-2.5 pr-4 font-mono text-cyan-300">
+                          <td className="py-2.5 pr-4 font-bold text-[#0A0A0B]">{u.name}</td>
+                          <td className="py-2.5 pr-4 text-neutral-700">{u.email}</td>
+                          <td className="py-2.5 pr-4 font-semibold text-[#0A0A0B]">
                             {u.email_verified ? 'Yes' : 'No'}
                           </td>
                           <td className="py-2.5 pr-4">
@@ -591,7 +620,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                                   `Updated role for ${u.email}`,
                                 )
                               }
-                              className="rounded bg-black border border-white/[0.15] px-2 py-1 text-xs text-white"
+                              className={selectClass}
                             >
                               <option value="customer">customer</option>
                               <option value="partner">partner</option>
@@ -613,7 +642,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                                   `Updated status for ${u.email}`,
                                 )
                               }
-                              className="rounded bg-black border border-white/[0.15] px-2 py-1 text-xs text-white"
+                              className={selectClass}
                             >
                               <option value="active">active</option>
                               <option value="suspended">suspended</option>
@@ -630,27 +659,24 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
             {/* 3. CLOUD & PTERODACTYL */}
             {tab === 'cloud' && (
               <div className="space-y-6">
-                <div className="rounded-2xl bg-[#08080F] border border-white/[0.12] p-6 flex flex-wrap items-center justify-between gap-4 text-xs">
+                <div className="rounded-2xl bg-[#0A0A0C] text-white border border-black p-6 flex flex-wrap items-center justify-between gap-4 text-xs shadow-lg">
                   <div>
-                    <div className="font-mono text-cyan-300">PTERODACTYL INTEGRATION</div>
+                    <div className="font-semibold text-neutral-300">Pterodactyl Integration</div>
                     <div className="mt-1 text-sm font-bold text-white">
                       {overview.pterodactyl.configured
                         ? `Connected to ${overview.pterodactyl.panelUrl}`
                         : 'Configure PTERODACTYL_URL, PTERODACTYL_APP_API_KEY, and PTERODACTYL_CLIENT_API_KEY in server env'}
                     </div>
                   </div>
-                  <span className="font-mono px-3 py-1 rounded bg-white/[0.06] text-amber-300">
+                  <span className="font-semibold px-3 py-1 rounded bg-white/10 text-amber-300">
                     {overview.pterodactyl.configured ? 'CONNECTED' : 'UNCONFIGURED'}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
-                  <form
-                    onSubmit={handleCreatePlan}
-                    className="rounded-2xl bg-[#08080F] border border-white/[0.1] p-6 space-y-3"
-                  >
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <Plus className="w-4 h-4 text-cyan-300" />
+                  <form onSubmit={handleCreatePlan} className={`${cardClass} space-y-3`}>
+                    <h3 className="text-sm font-bold text-[#0A0A0B] flex items-center gap-2">
+                      <Plus className="w-4 h-4 text-[#0A0A0B]" />
                       <span>Add Hosting Plan</span>
                     </h3>
                     <input
@@ -659,7 +685,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                       placeholder="Plan Name"
                       value={planName}
                       onChange={(e) => setPlanName(e.target.value)}
-                      className="w-full rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white"
+                      className={inputClass}
                     />
                     <div className="grid grid-cols-2 gap-2">
                       <input
@@ -667,14 +693,14 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                         placeholder="Category"
                         value={planCat}
                         onChange={(e) => setPlanCat(e.target.value)}
-                        className="rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white"
+                        className={inputClass}
                       />
                       <input
                         type="text"
                         placeholder="CPU"
                         value={planCpu}
                         onChange={(e) => setPlanCpu(e.target.value)}
-                        className="rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white"
+                        className={inputClass}
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
@@ -683,7 +709,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                         placeholder="RAM GB"
                         value={planRam}
                         onChange={(e) => setPlanRam(e.target.value)}
-                        className="rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white"
+                        className={inputClass}
                       />
                       <input
                         type="number"
@@ -691,27 +717,27 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                         placeholder="Price USD"
                         value={planPrice}
                         onChange={(e) => setPlanPrice(e.target.value)}
-                        className="rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white"
+                        className={inputClass}
                       />
                     </div>
                     <button
                       type="submit"
-                      className="w-full py-2 text-xs font-semibold text-black bg-white rounded-lg cursor-pointer"
+                      className="w-full py-2 text-xs font-semibold text-white bg-[#0A0A0B] rounded-lg hover:bg-neutral-800 cursor-pointer"
                     >
                       Create Hosting Plan
                     </button>
                   </form>
 
-                  <div className="rounded-2xl bg-[#08080C] border border-white/[0.1] p-6 space-y-3">
-                    <h3 className="text-sm font-bold text-white">Active Hosting Plans</h3>
+                  <div className={`${cardClass} space-y-3`}>
+                    <h3 className="text-sm font-bold text-[#0A0A0B]">Active Hosting Plans</h3>
                     {overview.plans.map((p) => (
                       <div
                         key={p.id}
-                        className="flex items-center justify-between text-xs rounded-lg bg-black/50 border border-white/[0.08] px-3.5 py-2.5"
+                        className="flex items-center justify-between text-xs rounded-lg bg-[#F8F8FA] border border-black/[0.08] px-3.5 py-2.5"
                       >
                         <div>
-                          <span className="font-semibold text-white">{p.name}</span>{' '}
-                          <span className="font-mono text-neutral-400">
+                          <span className="font-bold text-[#0A0A0B]">{p.name}</span>{' '}
+                          <span className="text-neutral-600 tabular-nums">
                             ({p.category} · {p.ram_gb}GB · ${p.price_monthly_usd}/mo)
                           </span>
                         </div>
@@ -723,7 +749,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                               'Plan deleted.',
                             )
                           }
-                          className="text-neutral-500 hover:text-rose-400 cursor-pointer"
+                          className="text-neutral-500 hover:text-rose-700 cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -733,20 +759,23 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                 </div>
 
                 {/* Server Requests */}
-                <div className="rounded-2xl bg-[#08080C] border border-white/[0.1] p-6 space-y-3">
-                  <h3 className="text-sm font-bold text-white">Customer Cloud Server Requests</h3>
+                <div className={`${cardClass} space-y-3`}>
+                  <h3 className="text-sm font-bold text-[#0A0A0B]">
+                    Customer Cloud Server Requests
+                  </h3>
                   {overview.servers.length === 0 ? (
-                    <p className="text-xs text-neutral-500">No server instances created yet.</p>
+                    <p className="text-xs text-neutral-600">No server instances created yet.</p>
                   ) : (
                     overview.servers.map((srv) => (
                       <div
                         key={srv.id}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-black/60 border border-white/[0.08] p-3.5 text-xs"
+                        className={`flex flex-wrap items-center justify-between gap-3 ${rowClass}`}
                       >
                         <div>
-                          <div className="font-bold text-white">{srv.name}</div>
-                          <div className="font-mono text-neutral-400">
-                            {srv.id} · {srv.node_name} · Ptero ID: {srv.pterodactyl_identifier || 'none'}
+                          <div className="font-bold text-[#0A0A0B]">{srv.name}</div>
+                          <div className="text-neutral-600 tabular-nums">
+                            {srv.id} · {srv.node_name} · Ptero ID:{' '}
+                            {srv.pterodactyl_identifier || 'none'}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -762,7 +791,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                                 `Updated server ${srv.name}`,
                               )
                             }
-                            className="rounded bg-black border border-white/15 px-2.5 py-1 text-xs text-white"
+                            className={selectClass}
                           >
                             <option value="pending_provisioning">pending_provisioning</option>
                             <option value="active">active</option>
@@ -781,24 +810,21 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
             {tab === 'shop' && (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <form
-                    onSubmit={handleCreateProduct}
-                    className="rounded-2xl bg-[#08080F] border border-white/[0.1] p-6 space-y-3"
-                  >
-                    <h3 className="text-sm font-bold text-white">Add Shop Product</h3>
+                  <form onSubmit={handleCreateProduct} className={`${cardClass} space-y-3`}>
+                    <h3 className="text-sm font-bold text-[#0A0A0B]">Add Shop Product</h3>
                     <input
                       type="text"
                       required
                       placeholder="Product Name"
                       value={prodName}
                       onChange={(e) => setProdName(e.target.value)}
-                      className="w-full rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white"
+                      className={inputClass}
                     />
                     <div className="grid grid-cols-3 gap-2">
                       <select
                         value={prodCat}
                         onChange={(e) => setProdCat(e.target.value)}
-                        className="rounded-lg bg-black border border-white/[0.12] px-2 py-2 text-xs text-white"
+                        className={inputClass}
                       >
                         <option>Hardware</option>
                         <option>Peripherals</option>
@@ -809,14 +835,14 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                         placeholder="Price USD"
                         value={prodPrice}
                         onChange={(e) => setProdPrice(e.target.value)}
-                        className="rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white"
+                        className={inputClass}
                       />
                       <input
                         type="number"
                         placeholder="Stock"
                         value={prodStock}
                         onChange={(e) => setProdStock(e.target.value)}
-                        className="rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white"
+                        className={inputClass}
                       />
                     </div>
                     <textarea
@@ -825,21 +851,18 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                       placeholder="Product summary"
                       value={prodSummary}
                       onChange={(e) => setProdSummary(e.target.value)}
-                      className="w-full rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white"
+                      className={inputClass}
                     />
                     <button
                       type="submit"
-                      className="px-4 py-2 text-xs font-semibold text-black bg-white rounded-lg cursor-pointer"
+                      className="px-4 py-2 text-xs font-semibold text-white bg-[#0A0A0B] rounded-lg cursor-pointer"
                     >
                       Add Product
                     </button>
                   </form>
 
-                  <form
-                    onSubmit={handleCreateCoupon}
-                    className="rounded-2xl bg-[#08080F] border border-white/[0.1] p-6 space-y-3"
-                  >
-                    <h3 className="text-sm font-bold text-white">Discount Coupons</h3>
+                  <form onSubmit={handleCreateCoupon} className={`${cardClass} space-y-3`}>
+                    <h3 className="text-sm font-bold text-[#0A0A0B]">Discount Coupons</h3>
                     <div className="flex gap-2">
                       <input
                         type="text"
@@ -847,7 +870,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                         placeholder="CODE (e.g. LAUNCH25)"
                         value={couponCode}
                         onChange={(e) => setCouponCode(e.target.value)}
-                        className="flex-1 rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white uppercase"
+                        className={`flex-1 uppercase ${inputClass}`}
                       />
                       <input
                         type="number"
@@ -855,11 +878,11 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                         max={90}
                         value={couponPct}
                         onChange={(e) => setCouponPct(e.target.value)}
-                        className="w-20 rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white"
+                        className="w-20 rounded-lg bg-[#F8F8FA] border border-black/[0.12] px-3 py-2 text-xs text-[#0A0A0B]"
                       />
                       <button
                         type="submit"
-                        className="px-4 py-2 text-xs font-semibold text-black bg-white rounded-lg cursor-pointer"
+                        className="px-4 py-2 text-xs font-semibold text-white bg-[#0A0A0B] rounded-lg cursor-pointer"
                       >
                         Add
                       </button>
@@ -868,9 +891,9 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                       {overview.coupons.map((c) => (
                         <div
                           key={c.id}
-                          className="flex items-center justify-between text-xs bg-black/50 border border-white/[0.08] px-3 py-2 rounded-lg"
+                          className="flex items-center justify-between text-xs bg-[#F8F8FA] border border-black/[0.08] px-3 py-2 rounded-lg"
                         >
-                          <span className="font-mono text-white">
+                          <span className="font-semibold text-[#0A0A0B] tabular-nums">
                             {c.code} · {c.discount_percent}% off ({c.used_count}/{c.max_uses} uses)
                           </span>
                           <button
@@ -878,11 +901,13 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                             onClick={() =>
                               void runAction(
                                 () =>
-                                  apiRequest(`/api/admin/shop/coupons/${c.id}`, { method: 'DELETE' }),
+                                  apiRequest(`/api/admin/shop/coupons/${c.id}`, {
+                                    method: 'DELETE',
+                                  }),
                                 'Coupon removed.',
                               )
                             }
-                            className="text-neutral-500 hover:text-rose-400 cursor-pointer"
+                            className="text-neutral-500 hover:text-rose-700 cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -893,21 +918,21 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                 </div>
 
                 {/* Orders */}
-                <div className="rounded-2xl bg-[#08080C] border border-white/[0.1] p-6 space-y-3">
-                  <h3 className="text-sm font-bold text-white">Shop Orders &amp; Invoices</h3>
+                <div className={`${cardClass} space-y-3`}>
+                  <h3 className="text-sm font-bold text-[#0A0A0B]">Shop Orders &amp; Invoices</h3>
                   {overview.orders.length === 0 ? (
-                    <p className="text-xs text-neutral-500">No customer orders placed yet.</p>
+                    <p className="text-xs text-neutral-600">No customer orders placed yet.</p>
                   ) : (
                     overview.orders.map((o) => (
                       <div
                         key={o.id}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-black/60 border border-white/[0.08] p-3.5 text-xs"
+                        className={`flex flex-wrap items-center justify-between gap-3 ${rowClass}`}
                       >
                         <div>
-                          <div className="font-mono font-bold text-white">
+                          <div className="font-bold text-[#0A0A0B] tabular-nums">
                             {o.id} · ${o.total_usd.toLocaleString()}
                           </div>
-                          <div className="text-neutral-400">{o.customer_email}</div>
+                          <div className="text-neutral-600">{o.customer_email}</div>
                         </div>
                         <select
                           value={o.status}
@@ -921,7 +946,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                               `Order ${o.id} updated.`,
                             )
                           }
-                          className="rounded bg-black border border-white/15 px-2.5 py-1 text-xs text-white"
+                          className={selectClass}
                         >
                           <option value="pending_payment">pending_payment</option>
                           <option value="paid">paid</option>
@@ -940,18 +965,15 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
             {/* 5. STUDIO & SUPPORT */}
             {tab === 'studio_support' && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="rounded-2xl bg-[#08080C] border border-white/[0.1] p-6 space-y-3">
-                  <h3 className="text-sm font-bold text-white">Studio Client Projects</h3>
+                <div className={`${cardClass} space-y-3`}>
+                  <h3 className="text-sm font-bold text-[#0A0A0B]">Studio Client Projects</h3>
                   {overview.projects.length === 0 ? (
-                    <p className="text-xs text-neutral-500">No Studio projects submitted yet.</p>
+                    <p className="text-xs text-neutral-600">No Studio projects submitted yet.</p>
                   ) : (
                     overview.projects.map((prj) => (
-                      <div
-                        key={prj.id}
-                        className="rounded-xl bg-black/60 border border-white/[0.08] p-3.5 text-xs space-y-2"
-                      >
+                      <div key={prj.id} className={`${rowClass} space-y-2`}>
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-white">{prj.title}</span>
+                          <span className="font-bold text-[#0A0A0B]">{prj.title}</span>
                           <select
                             value={prj.status}
                             onChange={(e) =>
@@ -967,7 +989,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                                 `Updated Studio project ${prj.title}`,
                               )
                             }
-                            className="rounded bg-black border border-white/15 px-2 py-1 text-xs text-white"
+                            className={selectClass}
                           >
                             <option value="submitted">submitted</option>
                             <option value="in_review">in_review</option>
@@ -976,7 +998,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                             <option value="archived">archived</option>
                           </select>
                         </div>
-                        <div className="text-neutral-400 font-mono">
+                        <div className="text-neutral-600">
                           {prj.service_type} · {prj.client_email}
                         </div>
                       </div>
@@ -984,22 +1006,22 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                   )}
                 </div>
 
-                <div className="rounded-2xl bg-[#08080C] border border-white/[0.1] p-6 space-y-3">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <LifeBuoy className="w-4 h-4 text-cyan-300" />
+                <div className={`${cardClass} space-y-3`}>
+                  <h3 className="text-sm font-bold text-[#0A0A0B] flex items-center gap-2">
+                    <LifeBuoy className="w-4 h-4 text-[#0A0A0B]" />
                     <span>Support Tickets</span>
                   </h3>
                   {overview.tickets.length === 0 ? (
-                    <p className="text-xs text-neutral-500">No support tickets yet.</p>
+                    <p className="text-xs text-neutral-600">No support tickets yet.</p>
                   ) : (
                     overview.tickets.map((t) => (
                       <div
                         key={t.id}
-                        className="rounded-xl bg-black/60 border border-white/[0.08] p-3.5 text-xs flex items-center justify-between gap-2"
+                        className={`${rowClass} flex items-center justify-between gap-2`}
                       >
                         <div>
-                          <div className="font-bold text-white">{t.subject}</div>
-                          <div className="text-neutral-400 font-mono">
+                          <div className="font-bold text-[#0A0A0B]">{t.subject}</div>
+                          <div className="text-neutral-600">
                             {t.email} · {t.priority}
                           </div>
                         </div>
@@ -1015,7 +1037,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                               `Ticket ${t.id} updated.`,
                             )
                           }
-                          className="rounded bg-black border border-white/15 px-2 py-1 text-xs text-white"
+                          className={selectClass}
                         >
                           <option value="open">open</option>
                           <option value="answered">answered</option>
@@ -1032,22 +1054,23 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
             {/* 6. LAUNCH 2027, PARTNERS & CAREERS */}
             {tab === 'growth' && (
               <div className="space-y-6">
-                <div className="rounded-2xl bg-[#08080C] border border-white/[0.1] p-6 space-y-3">
-                  <h3 className="text-sm font-bold text-white">
+                <div className={`${cardClass} space-y-3`}>
+                  <h3 className="text-sm font-bold text-[#0A0A0B]">
                     Launch 01.01.2027 Early Access Registrations ({overview.earlyAccess.length})
                   </h3>
                   {overview.earlyAccess.length === 0 ? (
-                    <p className="text-xs text-neutral-500">No Early Access registrations yet.</p>
+                    <p className="text-xs text-neutral-600">No Early Access registrations yet.</p>
                   ) : (
                     overview.earlyAccess.map((ea) => (
                       <div
                         key={ea.id}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-black/60 border border-white/[0.08] p-3 text-xs"
+                        className={`flex flex-wrap items-center justify-between gap-3 ${rowClass}`}
                       >
                         <div>
-                          <span className="font-bold text-white">{ea.full_name}</span>{' '}
-                          <span className="font-mono text-neutral-400">({ea.email})</span> · Verified:{' '}
-                          <span className="font-mono text-cyan-300">
+                          <span className="font-bold text-[#0A0A0B]">{ea.full_name}</span>{' '}
+                          <span className="text-neutral-600">({ea.email})</span> ·
+                          Verified:{' '}
+                          <span className="font-semibold text-[#0A0A0B]">
                             {ea.email_verified ? 'Yes' : 'No'}
                           </span>
                           {ea.slot_number ? ` · Slot #${ea.slot_number}` : ''}
@@ -1064,7 +1087,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                               `Updated eligibility for ${ea.email}`,
                             )
                           }
-                          className="rounded bg-black border border-white/15 px-2 py-1 text-xs text-white"
+                          className={selectClass}
                         >
                           <option value="pending_verification">pending_verification</option>
                           <option value="qualified">qualified</option>
@@ -1077,19 +1100,19 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="rounded-2xl bg-[#08080C] border border-white/[0.1] p-6 space-y-3">
-                    <h3 className="text-sm font-bold text-white">Partner Applications</h3>
+                  <div className={`${cardClass} space-y-3`}>
+                    <h3 className="text-sm font-bold text-[#0A0A0B]">Partner Applications</h3>
                     {overview.partners.length === 0 ? (
-                      <p className="text-xs text-neutral-500">No partner applications yet.</p>
+                      <p className="text-xs text-neutral-600">No partner applications yet.</p>
                     ) : (
                       overview.partners.map((p) => (
                         <div
                           key={p.id}
-                          className="flex items-center justify-between rounded-xl bg-black/60 border border-white/[0.08] p-3 text-xs"
+                          className={`flex items-center justify-between ${rowClass}`}
                         >
                           <div>
-                            <div className="font-bold text-white">{p.company_name}</div>
-                            <div className="font-mono text-neutral-400">
+                            <div className="font-bold text-[#0A0A0B]">{p.company_name}</div>
+                            <div className="text-neutral-600">
                               {p.referral_code} · {p.email}
                             </div>
                           </div>
@@ -1105,7 +1128,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                                 `Updated partner ${p.company_name}`,
                               )
                             }
-                            className="rounded bg-black border border-white/15 px-2 py-1 text-xs text-white"
+                            className={selectClass}
                           >
                             <option value="pending">pending</option>
                             <option value="approved">approved</option>
@@ -1116,22 +1139,22 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                     )}
                   </div>
 
-                  <div className="rounded-2xl bg-[#08080C] border border-white/[0.1] p-6 space-y-3">
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <Briefcase className="w-4 h-4 text-violet-300" />
+                  <div className={`${cardClass} space-y-3`}>
+                    <h3 className="text-sm font-bold text-[#0A0A0B] flex items-center gap-2">
+                      <Briefcase className="w-4 h-4 text-[#0A0A0B]" />
                       <span>Career &amp; Staff Applications</span>
                     </h3>
                     {overview.careers.length === 0 ? (
-                      <p className="text-xs text-neutral-500">No career applications yet.</p>
+                      <p className="text-xs text-neutral-600">No career applications yet.</p>
                     ) : (
                       overview.careers.map((c) => (
                         <div
                           key={c.id}
-                          className="flex items-center justify-between rounded-xl bg-black/60 border border-white/[0.08] p-3 text-xs"
+                          className={`flex items-center justify-between ${rowClass}`}
                         >
                           <div>
-                            <div className="font-bold text-white">{c.applicant_name}</div>
-                            <div className="text-neutral-400">{c.position_title}</div>
+                            <div className="font-bold text-[#0A0A0B]">{c.applicant_name}</div>
+                            <div className="text-neutral-600">{c.position_title}</div>
                           </div>
                           <select
                             value={c.status}
@@ -1145,7 +1168,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                                 `Updated application for ${c.applicant_name}`,
                               )
                             }
-                            className="rounded bg-black border border-white/15 px-2 py-1 text-xs text-white"
+                            className={selectClass}
                           >
                             <option value="received">received</option>
                             <option value="reviewing">reviewing</option>
@@ -1165,18 +1188,15 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
             {tab === 'cms' && (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <form
-                    onSubmit={handleCreatePost}
-                    className="rounded-2xl bg-[#08080F] border border-white/[0.1] p-6 space-y-3"
-                  >
-                    <h3 className="text-sm font-bold text-white">Publish Blog Article</h3>
+                  <form onSubmit={handleCreatePost} className={`${cardClass} space-y-3`}>
+                    <h3 className="text-sm font-bold text-[#0A0A0B]">Publish Blog Article</h3>
                     <input
                       type="text"
                       required
                       placeholder="Article Title"
                       value={postTitle}
                       onChange={(e) => setPostTitle(e.target.value)}
-                      className="w-full rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white"
+                      className={inputClass}
                     />
                     <input
                       type="text"
@@ -1184,7 +1204,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                       placeholder="Category"
                       value={postCat}
                       onChange={(e) => setPostCat(e.target.value)}
-                      className="w-full rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white"
+                      className={inputClass}
                     />
                     <input
                       type="text"
@@ -1192,7 +1212,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                       placeholder="Short Excerpt"
                       value={postExcerpt}
                       onChange={(e) => setPostExcerpt(e.target.value)}
-                      className="w-full rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white"
+                      className={inputClass}
                     />
                     <textarea
                       rows={3}
@@ -1200,41 +1220,42 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                       placeholder="Full Markdown / Text Content"
                       value={postContent}
                       onChange={(e) => setPostContent(e.target.value)}
-                      className="w-full rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white"
+                      className={inputClass}
                     />
                     <button
                       type="submit"
-                      className="px-4 py-2 text-xs font-semibold text-black bg-white rounded-lg cursor-pointer"
+                      className="px-4 py-2 text-xs font-semibold text-white bg-[#0A0A0B] rounded-lg cursor-pointer"
                     >
                       Publish Post
                     </button>
                   </form>
 
-                  <form
-                    onSubmit={handleSaveSettings}
-                    className="rounded-2xl bg-[#08080F] border border-white/[0.1] p-6 space-y-3"
-                  >
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <Settings className="w-4 h-4 text-cyan-300" />
+                  <form onSubmit={handleSaveSettings} className={`${cardClass} space-y-3`}>
+                    <h3 className="text-sm font-bold text-[#0A0A0B] flex items-center gap-2">
+                      <Settings className="w-4 h-4 text-[#0A0A0B]" />
                       <span>Global Homepage Settings</span>
                     </h3>
-                    <label className="block text-xs text-neutral-400">Hero Heading</label>
+                    <label className="block text-xs font-semibold text-neutral-700">
+                      Hero Heading
+                    </label>
                     <input
                       type="text"
                       value={heroHeading}
                       onChange={(e) => setHeroHeading(e.target.value)}
-                      className="w-full rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white"
+                      className={inputClass}
                     />
-                    <label className="block text-xs text-neutral-400">Promo Banner Text</label>
+                    <label className="block text-xs font-semibold text-neutral-700">
+                      Promo Banner Text
+                    </label>
                     <input
                       type="text"
                       value={promoBanner}
                       onChange={(e) => setPromoBanner(e.target.value)}
-                      className="w-full rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white"
+                      className={inputClass}
                     />
                     <button
                       type="submit"
-                      className="px-4 py-2 text-xs font-semibold text-black bg-white rounded-lg cursor-pointer"
+                      className="px-4 py-2 text-xs font-semibold text-white bg-[#0A0A0B] rounded-lg cursor-pointer"
                     >
                       Save Site Settings
                     </button>
@@ -1242,18 +1263,15 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <form
-                    onSubmit={handleCreateAnnouncement}
-                    className="rounded-2xl bg-[#08080F] border border-white/[0.1] p-6 space-y-3"
-                  >
-                    <h3 className="text-sm font-bold text-white">Create Announcement</h3>
+                  <form onSubmit={handleCreateAnnouncement} className={`${cardClass} space-y-3`}>
+                    <h3 className="text-sm font-bold text-[#0A0A0B]">Create Announcement</h3>
                     <input
                       type="text"
                       required
                       placeholder="Announcement Title"
                       value={annTitle}
                       onChange={(e) => setAnnTitle(e.target.value)}
-                      className="w-full rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white"
+                      className={inputClass}
                     />
                     <textarea
                       rows={2}
@@ -1261,28 +1279,25 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                       placeholder="Announcement message"
                       value={annBody}
                       onChange={(e) => setAnnBody(e.target.value)}
-                      className="w-full rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white"
+                      className={inputClass}
                     />
                     <button
                       type="submit"
-                      className="px-4 py-2 text-xs font-semibold text-black bg-white rounded-lg cursor-pointer"
+                      className="px-4 py-2 text-xs font-semibold text-white bg-[#0A0A0B] rounded-lg cursor-pointer"
                     >
                       Post Announcement
                     </button>
                   </form>
 
-                  <form
-                    onSubmit={handleCreateFaq}
-                    className="rounded-2xl bg-[#08080F] border border-white/[0.1] p-6 space-y-3"
-                  >
-                    <h3 className="text-sm font-bold text-white">Add FAQ Entry</h3>
+                  <form onSubmit={handleCreateFaq} className={`${cardClass} space-y-3`}>
+                    <h3 className="text-sm font-bold text-[#0A0A0B]">Add FAQ Entry</h3>
                     <input
                       type="text"
                       required
                       placeholder="Question"
                       value={faqQ}
                       onChange={(e) => setFaqQ(e.target.value)}
-                      className="w-full rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white"
+                      className={inputClass}
                     />
                     <textarea
                       rows={2}
@@ -1290,11 +1305,11 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                       placeholder="Answer"
                       value={faqA}
                       onChange={(e) => setFaqA(e.target.value)}
-                      className="w-full rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white"
+                      className={inputClass}
                     />
                     <button
                       type="submit"
-                      className="px-4 py-2 text-xs font-semibold text-black bg-white rounded-lg cursor-pointer"
+                      className="px-4 py-2 text-xs font-semibold text-white bg-[#0A0A0B] rounded-lg cursor-pointer"
                     >
                       Add FAQ
                     </button>
@@ -1302,26 +1317,25 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                 </div>
 
                 {/* Contact Inquiries */}
-                <div className="rounded-2xl bg-[#08080C] border border-white/[0.1] p-6 space-y-3">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <ShieldAlert className="w-4 h-4 text-violet-300" />
+                <div className={`${cardClass} space-y-3`}>
+                  <h3 className="text-sm font-bold text-[#0A0A0B] flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-[#0A0A0B]" />
                     <span>Contact Inquiries ({overview.inquiries.length})</span>
                   </h3>
                   {overview.inquiries.length === 0 ? (
-                    <p className="text-xs text-neutral-500">No contact submissions yet.</p>
+                    <p className="text-xs text-neutral-600">No contact submissions yet.</p>
                   ) : (
                     overview.inquiries.map((inq) => (
-                      <div
-                        key={inq.id}
-                        className="rounded-xl bg-black/60 border border-white/[0.08] p-3.5 text-xs space-y-1"
-                      >
+                      <div key={inq.id} className={`${rowClass} space-y-1`}>
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-white">
+                          <span className="font-bold text-[#0A0A0B]">
                             {inq.name} ({inq.email})
                           </span>
-                          <span className="font-mono text-cyan-300">{inq.scope}</span>
+                          <span className="font-semibold text-[#0A0A0B] capitalize">
+                            {inq.scope}
+                          </span>
                         </div>
-                        <p className="text-neutral-300">{inq.brief}</p>
+                        <p className="text-neutral-700">{inq.brief}</p>
                       </div>
                     ))
                   )}

@@ -1,30 +1,65 @@
-import { Boxes, Cloud, Code2, Database, Gamepad2, Lock } from 'lucide-react';
+import { ArrowRight, Boxes, Cloud, Code2, Cpu, Database, Gamepad2, Globe, Lock, ShieldCheck } from 'lucide-react';
+import { Surface3D } from './Surface3D';
+import { PageRoute } from '../types/navigation';
 
-const STACK = [
-  { name: 'Proxmox VE', icon: Boxes },
-  { name: 'Pterodactyl', icon: Gamepad2 },
-  { name: 'React', icon: Code2 },
-  { name: 'SQLite', icon: Database },
-  { name: 'Node.js', icon: Cloud },
-  { name: 'Zero-trust auth', icon: Lock },
+interface TrustedLogosProps {
+  onNavigate?: (route: PageRoute) => void;
+}
+
+const STACK_TILES = [
+  { name: 'Proxmox VE', role: 'LXC Compute', icon: Boxes },
+  { name: 'Pterodactyl', role: 'Game Proxy', icon: Gamepad2 },
+  { name: 'React 19', role: 'Spatial UI', icon: Code2 },
+  { name: 'SQLite WAL', role: 'Ledger DB', icon: Database },
+  { name: 'Node.js', role: 'API Gateway', icon: Cloud },
+  { name: 'Zero-Trust', role: 'Scrypt RBAC', icon: Lock },
+  { name: 'EPYC Nodes', role: 'DDR5 Bare-Metal', icon: Cpu },
+  { name: 'Anycast', role: 'Global Edge', icon: Globe },
+  { name: '99.98% SLA', role: 'Audit Trail', icon: ShieldCheck },
 ];
 
-export function TrustedLogos() {
+export function TrustedLogos({ onNavigate }: TrustedLogosProps) {
   return (
-    <section aria-label="Technology stack" className="bg-black pt-6 pb-20 md:pb-24">
-      <div className="max-w-[1120px] mx-auto px-6 text-center">
-        <p className="text-xs font-medium text-neutral-500 tracking-wide">
-          Built on proven infrastructure and tooling
-        </p>
-        <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-y-6 gap-x-8 items-center justify-items-center">
-          {STACK.map(({ name, icon: Icon }) => (
-            <div
-              key={name}
-              className="flex items-center gap-2.5 text-neutral-400/80 hover:text-violet-200 transition-colors duration-200"
+    <section
+      aria-label="Technology infrastructure"
+      className="bg-[#F4F4F5] py-20 md:py-28 border-t border-black/[0.06]"
+    >
+      <div className="max-w-[1180px] mx-auto px-6 grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] gap-12 lg:gap-16 items-center">
+        {/* Left Editorial Column mirroring reference image layout */}
+        <div>
+          <h2 className="text-[clamp(1.75rem,3.4vw,2.75rem)] font-bold tracking-[-0.03em] leading-[1.1] text-[#0A0A0B]">
+            Engineered to scale every workload. Built to support every stage.
+          </h2>
+          <p className="mt-5 text-sm md:text-base text-neutral-600 leading-relaxed max-w-md">
+            From high-frequency Minecraft &amp; Proxmox LXC nodes to full-cycle React platforms and
+            verified hardware fulfillment, HelzerX runs every workload on unified architecture.
+          </p>
+          <div className="mt-8">
+            <button
+              type="button"
+              onClick={() => onNavigate?.('products')}
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-semibold text-white bg-[#0A0A0B] rounded-lg hover:bg-neutral-800 transition-colors cursor-pointer"
             >
-              <Icon className="w-[18px] h-[18px]" aria-hidden="true" />
-              <span className="text-sm font-semibold tracking-tight whitespace-nowrap">{name}</span>
-            </div>
+              <span>See our stack</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Right Elevated White 3D Stack Tile Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 sm:gap-4">
+          {STACK_TILES.map(({ name, role, icon: Icon }, idx) => (
+            <Surface3D key={name} intensity={12} delay={idx * 0.03} className="rounded-2xl">
+              <div className="p-4 sm:p-5 h-full min-h-[116px] flex flex-col items-center justify-center text-center">
+                <Icon className="w-5 h-5 text-[#0A0A0B] mb-2 shrink-0" aria-hidden="true" />
+                <span className="text-xs sm:text-sm font-bold tracking-tight text-[#0A0A0B] leading-tight">
+                  {name}
+                </span>
+                <span className="mt-1 text-[11px] text-neutral-500 leading-tight">
+                  {role}
+                </span>
+              </div>
+            </Surface3D>
           ))}
         </div>
       </div>

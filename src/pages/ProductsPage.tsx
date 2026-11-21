@@ -1,4 +1,5 @@
 import { ArrowRight, Cloud, Cpu, Palette, Server, ShoppingBag, Shield } from 'lucide-react';
+import { Surface3D } from '../components/Surface3D';
 import { PageRoute } from '../types/navigation';
 
 interface ProductsPageProps {
@@ -14,10 +15,10 @@ export function ProductsPage({ onNavigate }: ProductsPageProps) {
       description:
         'High-frequency AMD EPYC compute nodes powered by NVMe ZFS mirrors, native Pterodactyl control-plane integration, and multi-region edge DDoS filtering.',
       specs: ['Pterodactyl Daemon Proxy', 'Proxmox LXC Containers', 'Automated Snapshots', '99.98% Target SLA'],
+      banner: '/assets/aistudio/file_0000000027788211b1e314262e805179_c9c9b7ff.png',
       route: 'cloud' as PageRoute,
       cta: 'Open HelzerX Cloud',
       icon: Cloud,
-      accent: 'text-cyan-300',
     },
     {
       id: 'studio',
@@ -26,10 +27,10 @@ export function ProductsPage({ onNavigate }: ProductsPageProps) {
       description:
         'Dedicated product engineering and digital creative agency executing full-stack applications, custom enterprise software, UI/UX design systems, video editing, and branding.',
       specs: ['7 Creative & Engineering Tracks', 'Client Project Portal', 'Direct Message Threads', 'Custom Sprint Scopes'],
+      banner: '/assets/aistudio/file_00000000808c8211b10e793920a7f76f_8d80975c.png',
       route: 'studio' as PageRoute,
       cta: 'Open HelzerX Studio',
       icon: Palette,
-      accent: 'text-violet-300',
     },
     {
       id: 'shop',
@@ -38,139 +39,172 @@ export function ProductsPage({ onNavigate }: ProductsPageProps) {
       description:
         'Direct procurement storefront offering calibrated 6K workstation displays, rack compute blades, CNC mechanical decks, and downloadable enterprise starter packs.',
       specs: ['Live Stock Inventory', 'Verified Customer Reviews', 'Coupon & Invoice System', 'Order History Portal'],
+      banner: '/assets/aistudio/file_00000000ca6c821196ff7de47bf63b50_2269b23b.png',
       route: 'shop' as PageRoute,
       cta: 'Open HelzerX Shop',
       icon: ShoppingBag,
-      accent: 'text-blue-300',
     },
   ];
 
   return (
-    <div className="bg-black text-white">
-      <section className="relative overflow-hidden helzerx-hero-aura pt-20 pb-24 md:pt-28 md:pb-32">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-[440px] left-1/2 -translate-x-1/2 w-[165%] h-[540px] rounded-[100%] bg-black border-t border-violet-300/40 shadow-[0_-20px_80px_rgba(167,139,250,0.35)]"
-        />
-
+    <div className="bg-[#F4F4F5] text-[#0A0A0B]">
+      <section className="relative overflow-hidden helzerx-studio-hero pt-16 pb-20 md:pt-24 md:pb-24 border-b border-black/[0.06]">
         <div className="relative z-10 max-w-[1040px] mx-auto px-6 text-center">
-          <div className="text-xs md:text-sm font-medium text-violet-200/85 mb-6">
-            <span>HelzerX Ecosystem</span>
-            <span aria-hidden="true" className="mx-2 text-cyan-400/70">·</span>
+          <div className="text-xs font-medium text-neutral-600 mb-6">
+            <span className="font-semibold text-[#0A0A0B]">HelzerX Ecosystem</span>
+            <span aria-hidden="true" className="mx-2 text-neutral-400">·</span>
             <span>Cloud</span>
-            <span aria-hidden="true" className="mx-2 text-cyan-400/70">·</span>
+            <span aria-hidden="true" className="mx-2 text-neutral-400">·</span>
             <span>Studio</span>
-            <span aria-hidden="true" className="mx-2 text-cyan-400/70">·</span>
+            <span aria-hidden="true" className="mx-2 text-neutral-400">·</span>
             <span>Shop</span>
           </div>
 
-          <h1 className="text-[clamp(2.5rem,5.5vw,4.25rem)] font-extrabold tracking-[-0.03em] leading-[1.04] text-white max-w-[18ch] mx-auto">
-            Unified Technology Products
+          <h1 className="text-[clamp(2.6rem,6vw,4.75rem)] font-extrabold tracking-[-0.04em] leading-[0.98] helzerx-dotted-text max-w-[16ch] mx-auto pb-2">
+            unified products.
           </h1>
-          <p className="mt-6 max-w-[58ch] mx-auto text-base md:text-lg leading-[1.6] text-neutral-200/90">
+          <p className="mt-6 max-w-[58ch] mx-auto text-base md:text-lg leading-[1.65] text-neutral-600">
             Three tightly integrated divisions engineered to power game communities, SaaS companies,
             and international creative organizations.
           </p>
         </div>
       </section>
 
-      <section className="bg-black py-16 md:py-24">
-        <div className="max-w-[1160px] mx-auto px-6 space-y-8">
-          {suites.map((suite) => {
-            const Icon = suite.icon;
-            return (
-              <article
-                key={suite.id}
-                className="rounded-2xl bg-[#08080F] border border-white/[0.1] p-8 md:p-10 grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-8 items-center"
-              >
-                <div>
-                  <div className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-neutral-400">
-                    <Icon className={`w-4 h-4 ${suite.accent}`} />
-                    <span>{suite.subtitle}</span>
-                  </div>
-                  <h2 className="mt-3 text-2xl md:text-3xl font-bold text-white">{suite.title}</h2>
-                  <p className="mt-4 text-sm md:text-base text-neutral-300 leading-relaxed">
-                    {suite.description}
-                  </p>
-                  <div className="mt-7 flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={() => onNavigate(suite.route)}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-semibold text-black bg-white rounded-lg hover:bg-neutral-200 transition-colors cursor-pointer"
-                    >
-                      <span>{suite.cta}</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onNavigate('pricing')}
-                      className="px-5 py-2.5 text-xs font-semibold text-neutral-200 border border-white/15 rounded-lg hover:border-white/30 transition-colors cursor-pointer"
-                    >
-                      View Pricing
-                    </button>
-                  </div>
-                </div>
+      <section className="bg-[#F4F4F5] py-16 md:py-24">
+        <div className="max-w-[1180px] mx-auto px-6 space-y-10">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+            {suites.map((suite, idx) => {
+              const Icon = suite.icon;
+              return (
+                <Surface3D key={suite.id} intensity={13} delay={idx * 0.06}>
+                  <article className="h-full flex flex-col justify-between text-left">
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => onNavigate(suite.route)}
+                        className="relative block w-full h-44 sm:h-48 overflow-hidden bg-[#0A0A0C] cursor-pointer group/prod"
+                      >
+                        <img
+                          src={suite.banner}
+                          alt={`${suite.title} Showcase Banner`}
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover object-center"
+                        />
+                        <div
+                          aria-hidden="true"
+                          className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#f8f8fb] via-[#f8f8fb]/75 via-30% to-transparent"
+                        />
+                      </button>
 
-                <div className="rounded-xl bg-black/70 border border-white/[0.08] p-6 space-y-3">
-                  <div className="text-xs font-mono text-neutral-500">CORE CAPABILITIES</div>
-                  {suite.specs.map((spec) => (
-                    <div
-                      key={spec}
-                      className="flex items-center justify-between py-2 border-b border-white/[0.06] last:border-0 text-sm text-neutral-200"
-                    >
-                      <span>{spec}</span>
-                      <span className={`text-xs font-mono ${suite.accent}`}>INCLUDED</span>
+                      <div className="px-7 pt-2">
+                        <div className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-500">
+                          <Icon className="w-4 h-4 text-[#0A0A0B] shrink-0" />
+                          <span>{suite.subtitle}</span>
+                        </div>
+                        <h2 className="mt-2.5 text-2xl font-bold text-[#0A0A0B] tracking-tight">
+                          {suite.title}
+                        </h2>
+                        <p className="mt-3 text-sm text-neutral-600 leading-relaxed">
+                          {suite.description}
+                        </p>
+                        <div className="mt-5 flex flex-wrap gap-x-2.5 gap-y-1.5 text-xs text-neutral-700 font-medium">
+                          {suite.specs.map((spec, i) => (
+                            <span key={spec} className="inline-flex items-center gap-2">
+                              <span>{spec}</span>
+                              {i < suite.specs.length - 1 && (
+                                <span aria-hidden="true" className="text-neutral-400">·</span>
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </article>
-            );
-          })}
+
+                    <div className="px-7 pb-7 pt-5 mt-6 border-t border-black/[0.06] flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() => onNavigate(suite.route)}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-white bg-[#0A0A0B] rounded-xl hover:bg-neutral-800 transition-colors cursor-pointer"
+                      >
+                        <span>{suite.cta}</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onNavigate('pricing')}
+                        className="px-4 py-2.5 text-xs font-semibold text-[#0A0A0B] border border-black/15 rounded-xl hover:border-black/35 transition-colors cursor-pointer"
+                      >
+                        View Pricing
+                      </button>
+                    </div>
+                  </article>
+                </Surface3D>
+              );
+            })}
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6">
-            <div className="rounded-2xl bg-[#08080C] border border-white/[0.09] p-6">
-              <Server className="w-5 h-5 text-cyan-300" />
-              <h3 className="mt-3 text-base font-bold text-white">Launch 01.01.2027 Allocation</h3>
-              <p className="mt-2 text-xs text-neutral-400 leading-relaxed">
-                Verified pre-launch accounts among the first 50 eligible registrations receive an
-                8GB RAM server upon launch.
-              </p>
-              <button
-                type="button"
-                onClick={() => onNavigate('launch')}
-                className="mt-4 text-xs font-semibold text-cyan-300 hover:text-white cursor-pointer"
-              >
-                Check Eligibility →
-              </button>
-            </div>
-            <div className="rounded-2xl bg-[#08080C] border border-white/[0.09] p-6">
-              <Cpu className="w-5 h-5 text-violet-300" />
-              <h3 className="mt-3 text-base font-bold text-white">Custom Enterprise Stacks</h3>
-              <p className="mt-2 text-xs text-neutral-400 leading-relaxed">
-                Dedicated private Proxmox host clusters combined with Studio custom software teams.
-              </p>
-              <button
-                type="button"
-                onClick={() => onNavigate('solutions')}
-                className="mt-4 text-xs font-semibold text-violet-300 hover:text-white cursor-pointer"
-              >
-                Explore Solutions →
-              </button>
-            </div>
-            <div className="rounded-2xl bg-[#08080C] border border-white/[0.09] p-6">
-              <Shield className="w-5 h-5 text-blue-300" />
-              <h3 className="mt-3 text-base font-bold text-white">Unified Customer Portal</h3>
-              <p className="mt-2 text-xs text-neutral-400 leading-relaxed">
-                Manage servers, invoices, Studio milestones, and support tickets from one dashboard.
-              </p>
-              <button
-                type="button"
-                onClick={() => onNavigate('dashboard')}
-                className="mt-4 text-xs font-semibold text-blue-300 hover:text-white cursor-pointer"
-              >
-                Open Dashboard →
-              </button>
-            </div>
+            <Surface3D intensity={14} delay={0}>
+              <div className="p-7 h-full">
+                <div className="w-11 h-11 rounded-2xl bg-[#111114] text-white flex items-center justify-center shadow-[0_12px_24px_rgba(10,10,14,0.28)] border border-white/10">
+                  <Server className="w-5 h-5" />
+                </div>
+                <h3 className="mt-5 text-base font-bold text-[#0A0A0B]">
+                  Launch 01.01.2027 Allocation
+                </h3>
+                <p className="mt-2 text-xs text-neutral-600 leading-relaxed">
+                  Verified pre-launch accounts among the first 50 eligible registrations receive an
+                  8GB RAM server upon launch.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => onNavigate('launch')}
+                  className="mt-4 text-xs font-bold text-[#0A0A0B] hover:text-neutral-600 cursor-pointer"
+                >
+                  Check Eligibility →
+                </button>
+              </div>
+            </Surface3D>
+            <Surface3D intensity={14} delay={0.05}>
+              <div className="p-7 h-full">
+                <div className="w-11 h-11 rounded-2xl bg-[#111114] text-white flex items-center justify-center shadow-[0_12px_24px_rgba(10,10,14,0.28)] border border-white/10">
+                  <Cpu className="w-5 h-5" />
+                </div>
+                <h3 className="mt-5 text-base font-bold text-[#0A0A0B]">
+                  Custom Enterprise Stacks
+                </h3>
+                <p className="mt-2 text-xs text-neutral-600 leading-relaxed">
+                  Dedicated private Proxmox host clusters combined with Studio custom software teams.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => onNavigate('solutions')}
+                  className="mt-4 text-xs font-bold text-[#0A0A0B] hover:text-neutral-600 cursor-pointer"
+                >
+                  Explore Solutions →
+                </button>
+              </div>
+            </Surface3D>
+            <Surface3D intensity={14} delay={0.1}>
+              <div className="p-7 h-full">
+                <div className="w-11 h-11 rounded-2xl bg-[#111114] text-white flex items-center justify-center shadow-[0_12px_24px_rgba(10,10,14,0.28)] border border-white/10">
+                  <Shield className="w-5 h-5" />
+                </div>
+                <h3 className="mt-5 text-base font-bold text-[#0A0A0B]">
+                  Unified Customer Portal
+                </h3>
+                <p className="mt-2 text-xs text-neutral-600 leading-relaxed">
+                  Manage servers, invoices, Studio milestones, and support tickets from one dashboard.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => onNavigate('dashboard')}
+                  className="mt-4 text-xs font-bold text-[#0A0A0B] hover:text-neutral-600 cursor-pointer"
+                >
+                  Open Dashboard →
+                </button>
+              </div>
+            </Surface3D>
           </div>
         </div>
       </section>

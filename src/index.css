@@ -8,149 +8,117 @@
 @layer base {
   html {
     font-family: var(--font-sans);
-    background-color: #000000;
-    color: #ffffff;
-    color-scheme: dark;
-    scroll-behavior: smooth;
+    background-color: #f4f4f5;
+    color: #0a0a0b;
+    color-scheme: light;
   }
 
   body {
-    background-color: #000000;
-    color: #ffffff;
+    background-color: #f4f4f5;
+    color: #0a0a0b;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  h1,
-  h2,
-  h3 {
+  h1, h2, h3 {
     text-wrap: balance;
   }
-
-  /* Consistent, calm interaction feedback across the whole app. */
-  button,
-  a,
-  input,
-  textarea,
-  select {
-    transition-property: color, background-color, border-color, box-shadow, opacity, transform;
-    transition-duration: 180ms;
-    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  button:active:not(:disabled) {
-    transform: scale(0.985);
-  }
-
-  :focus-visible {
-    outline: 2px solid rgb(167 139 250 / 0.85);
-    outline-offset: 2px;
-  }
-
-  ::selection {
-    background: rgb(139 92 246 / 0.35);
-    color: #f5f3ff;
-  }
-
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-
-  ::-webkit-scrollbar-track {
-    background: #050508;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: rgb(139 92 246 / 0.35);
-    border: 2px solid #050508;
-    border-radius: 999px;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: rgb(139 92 246 / 0.6);
-  }
 }
 
-/* Luminous curved planet horizon from dark obsidian into violet aura */
-.helzerx-hero-aura {
+/* Crisp studio daylight radial atmosphere (white center -> subtle studio gray edges) */
+.helzerx-studio-hero {
   background:
-    radial-gradient(125% 92% at 50% 10%, #000000 44%, #1f0d3b 70%, #5b21b6 87%, #a78bfa 98%, #ddd6fe 100%);
+    radial-gradient(95% 75% at 50% 18%, #ffffff 0%, #fafafa 48%, #efefef 82%, #e8e8ec 100%);
 }
 
-.helzerx-horizon-arc {
-  background: radial-gradient(50% 100% at 50% 100%, rgba(167, 139, 250, 0.24) 0%, rgba(109, 40, 217, 0.12) 45%, rgba(0, 0, 0, 0) 75%);
+/* Signature dotted halftone display headline matching reference aesthetic */
+.helzerx-dotted-text {
+  color: #18181b;
+  background-image:
+    radial-gradient(circle, rgba(24, 24, 27, 0.92) 1.55px, transparent 1.75px),
+    radial-gradient(circle, rgba(24, 24, 27, 0.36) 1.15px, transparent 1.35px);
+  background-size: 6px 6px, 6px 6px;
+  background-position: 0 0, 3px 3px;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
-.helzerx-bottom-glow {
-  background:
-    radial-gradient(90% 60% at 50% 85%, rgba(109, 40, 217, 0.55) 0%, rgba(76, 29, 149, 0.32) 42%, rgba(0, 0, 0, 0) 78%);
+/* Elevated tactile 3D white ceramic slab with stepped physical thickness & studio depth shadow */
+.helzerx-studio-card {
+  background: linear-gradient(170deg, #ffffff 0%, #f9f9fb 65%, #f1f1f6 100%);
+  box-shadow:
+    0 8px 0 -2px #dcdce4,
+    0 14px 0 -5px #c5c5d0,
+    0 40px 85px -16px rgba(10, 10, 16, 0.22),
+    0 18px 34px -10px rgba(10, 10, 16, 0.14),
+    inset 0 2px 0 0 rgba(255, 255, 255, 1),
+    inset 2px 0 0 0 rgba(255, 255, 255, 0.8),
+    inset 0 -3px 8px 0 rgba(10, 10, 16, 0.04);
 }
 
-/* Gentle 3D perspective used by the product showcase and feature panels. */
+.helzerx-studio-card:hover {
+  box-shadow:
+    0 11px 0 -2px #d4d4df,
+    0 18px 0 -6px #bcbcc9,
+    0 52px 110px -16px rgba(10, 10, 16, 0.28),
+    0 24px 44px -12px rgba(10, 10, 16, 0.18),
+    inset 0 2px 0 0 rgba(255, 255, 255, 1),
+    inset 2px 0 0 0 rgba(255, 255, 255, 0.88);
+}
+
+/* Sculpted dark obsidian 3D slab with thick metallic bevel lip & deep contact shadow */
+.helzerx-studio-card-dark {
+  background: linear-gradient(160deg, #1b1b21 0%, #0d0d11 60%, #070709 100%);
+  box-shadow:
+    0 9px 0 -2px #272731,
+    0 16px 0 -5px #1a1a22,
+    0 46px 100px -16px rgba(0, 0, 0, 0.62),
+    0 22px 42px -12px rgba(0, 0, 0, 0.42),
+    inset 0 2px 0 0 rgba(255, 255, 255, 0.22),
+    inset 1.5px 0 0 0 rgba(255, 255, 255, 0.09);
+}
+
+.helzerx-studio-card-dark:hover {
+  box-shadow:
+    0 12px 0 -2px #2f2f3b,
+    0 20px 0 -6px #1e1e28,
+    0 58px 120px -16px rgba(0, 0, 0, 0.72),
+    0 26px 50px -12px rgba(0, 0, 0, 0.48),
+    inset 0 2px 0 0 rgba(255, 255, 255, 0.28),
+    inset 1.5px 0 0 0 rgba(255, 255, 255, 0.12);
+}
+
+/* Sculpted 3D floating studio display bezel (stationary under mouse/touch) */
 .helzerx-perspective-frame {
-  transform: perspective(1400px) rotateX(7deg);
-  transform-origin: center top;
-  transition: transform 480ms cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform;
-}
-
-.helzerx-perspective-frame:hover,
-.helzerx-perspective-frame:focus-within {
-  transform: perspective(1400px) rotateX(2deg);
-}
-
-.helzerx-tilt-card {
-  transform: perspective(900px) rotateX(0deg) rotateY(0deg) translateZ(0);
-  transform-style: preserve-3d;
-  transition:
-    transform 480ms cubic-bezier(0.16, 1, 0.3, 1),
-    border-color 240ms ease,
-    box-shadow 480ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.helzerx-tilt-card:hover {
-  transform: perspective(900px) rotateX(3deg) rotateY(-3deg) translateZ(6px);
-  box-shadow: 0 26px 70px -30px rgba(124, 58, 237, 0.55);
+  transform: perspective(1350px) rotateX(5deg) rotateY(0deg);
+  transform-origin: center center;
 }
 
 .helzerx-shimmer {
-  background: linear-gradient(
-    100deg,
-    rgba(255, 255, 255, 0.03) 20%,
-    rgba(167, 139, 250, 0.14) 42%,
-    rgba(34, 211, 238, 0.09) 50%,
-    rgba(255, 255, 255, 0.03) 78%
-  );
-  background-size: 220% 100%;
-  animation: helzerx-shimmer 1.6s linear infinite;
+  background: linear-gradient(90deg, #e4e4e7 25%, #f4f4f5 50%, #e4e4e7 75%);
+  background-size: 200% 100%;
+  animation: helzerxShimmer 1.4s ease-in-out infinite;
 }
 
-@keyframes helzerx-shimmer {
-  to {
-    background-position: -220% 0;
+@keyframes helzerxShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
-
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-
   .helzerx-perspective-frame,
   .helzerx-perspective-frame:hover,
-  .helzerx-perspective-frame:focus-within,
-  .helzerx-tilt-card,
-  .helzerx-tilt-card:hover {
+  .helzerx-perspective-frame:focus-within {
     transform: none;
+    transition: none;
+  }
+  .helzerx-shimmer {
+    animation: none;
   }
 }

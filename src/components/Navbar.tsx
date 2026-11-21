@@ -60,7 +60,7 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
   return (
     <header
       ref={navRef}
-      className="sticky top-0 z-50 w-full bg-black/85 backdrop-blur-xl border-b border-white/[0.08]"
+      className="sticky top-0 z-50 w-full bg-[#F4F4F5]/90 backdrop-blur-xl border-b border-black/[0.08]"
     >
       <div className="max-w-[1380px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
         {/* Brand Wordmark */}
@@ -70,22 +70,9 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
             e.preventDefault();
             go('home');
           }}
-          className="flex items-center gap-2.5 text-base lg:text-lg font-bold tracking-tight text-white whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 rounded-md px-1"
+          className="flex items-center gap-2 text-lg font-extrabold tracking-tight text-[#0A0A0B] whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black rounded-md px-1"
         >
-          <span
-            aria-hidden="true"
-            className="w-6 h-6 rounded-md bg-gradient-to-br from-violet-400 via-blue-500 to-cyan-400 flex items-center justify-center shadow-[0_0_18px_rgba(99,102,241,0.45)]"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path
-                d="M2.5 2.5L7 7M7 7L11.5 2.5M7 7L2.5 11.5M7 7L11.5 11.5"
-                stroke="#FFFFFF"
-                strokeWidth="1.9"
-                strokeLinecap="round"
-              />
-            </svg>
-          </span>
-          <span>HelzerX</span>
+          <span>helzerx.</span>
         </a>
 
         {/* Primary Desktop Navigation */}
@@ -94,7 +81,7 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
             type="button"
             onClick={() => go('home')}
             className={`text-[13px] font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer py-1 ${
-              currentRoute === 'home' ? 'text-white' : 'text-neutral-300 hover:text-white'
+              currentRoute === 'home' ? 'text-[#0A0A0B] font-semibold' : 'text-neutral-600 hover:text-[#0A0A0B]'
             }`}
           >
             Home
@@ -104,7 +91,7 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
             type="button"
             onClick={() => go('about')}
             className={`text-[13px] font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer py-1 ${
-              currentRoute === 'about' ? 'text-white' : 'text-neutral-300 hover:text-white'
+              currentRoute === 'about' ? 'text-[#0A0A0B] font-semibold' : 'text-neutral-600 hover:text-[#0A0A0B]'
             }`}
           >
             About
@@ -117,7 +104,7 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
               onClick={() => setOpenMenu(openMenu === 'products' ? null : 'products')}
               aria-expanded={openMenu === 'products'}
               className={`inline-flex items-center gap-1 text-[13px] font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer py-1 ${
-                isProductsActive ? 'text-white' : 'text-neutral-300 hover:text-white'
+                isProductsActive ? 'text-[#0A0A0B] font-semibold' : 'text-neutral-600 hover:text-[#0A0A0B]'
               }`}
             >
               <span>Products</span>
@@ -125,7 +112,7 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
             </button>
 
             {openMenu === 'products' && (
-              <div className="absolute left-0 top-full mt-3 w-[340px] rounded-2xl bg-[#0B0C14]/95 backdrop-blur-xl border border-white/[0.12] p-2.5 shadow-[0_24px_60px_rgba(0,0,0,0.85)]">
+              <div className="absolute left-0 top-full mt-3 w-[340px] rounded-2xl bg-white border border-black/[0.08] p-2.5 shadow-[0_24px_60px_rgba(0,0,0,0.12)]">
                 {productItems.map((item) => (
                   <button
                     key={item.route}
@@ -133,12 +120,24 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
                     onClick={() => go(item.route)}
                     className={`w-full text-left px-3.5 py-2.5 rounded-xl transition-colors cursor-pointer block ${
                       currentRoute === item.route
-                        ? 'bg-violet-500/15 text-white'
-                        : 'hover:bg-white/[0.05] text-neutral-200'
+                        ? 'bg-[#0A0A0B] text-white'
+                        : 'hover:bg-neutral-100 text-[#0A0A0B]'
                     }`}
                   >
-                    <div className="text-xs font-semibold text-white">{item.label}</div>
-                    <div className="text-[11px] text-neutral-400 mt-0.5">{item.desc}</div>
+                    <div
+                      className={`text-xs font-semibold ${
+                        currentRoute === item.route ? 'text-white' : 'text-[#0A0A0B]'
+                      }`}
+                    >
+                      {item.label}
+                    </div>
+                    <div
+                      className={`text-[11px] mt-0.5 ${
+                        currentRoute === item.route ? 'text-neutral-300' : 'text-neutral-600'
+                      }`}
+                    >
+                      {item.desc}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -149,7 +148,7 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
             type="button"
             onClick={() => go('cloud')}
             className={`text-[13px] font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer py-1 ${
-              currentRoute === 'cloud' ? 'text-white' : 'text-neutral-300 hover:text-white'
+              currentRoute === 'cloud' ? 'text-[#0A0A0B] font-semibold' : 'text-neutral-600 hover:text-[#0A0A0B]'
             }`}
           >
             Cloud
@@ -159,7 +158,7 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
             type="button"
             onClick={() => go('studio')}
             className={`text-[13px] font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer py-1 ${
-              currentRoute === 'studio' ? 'text-white' : 'text-neutral-300 hover:text-white'
+              currentRoute === 'studio' ? 'text-[#0A0A0B] font-semibold' : 'text-neutral-600 hover:text-[#0A0A0B]'
             }`}
           >
             Studio
@@ -169,7 +168,7 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
             type="button"
             onClick={() => go('shop')}
             className={`text-[13px] font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer py-1 ${
-              currentRoute === 'shop' ? 'text-white' : 'text-neutral-300 hover:text-white'
+              currentRoute === 'shop' ? 'text-[#0A0A0B] font-semibold' : 'text-neutral-600 hover:text-[#0A0A0B]'
             }`}
           >
             Shop
@@ -179,7 +178,7 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
             type="button"
             onClick={() => go('pricing')}
             className={`text-[13px] font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer py-1 ${
-              currentRoute === 'pricing' ? 'text-white' : 'text-neutral-300 hover:text-white'
+              currentRoute === 'pricing' ? 'text-[#0A0A0B] font-semibold' : 'text-neutral-600 hover:text-[#0A0A0B]'
             }`}
           >
             Pricing
@@ -192,7 +191,7 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
               onClick={() => setOpenMenu(openMenu === 'community' ? null : 'community')}
               aria-expanded={openMenu === 'community'}
               className={`inline-flex items-center gap-1 text-[13px] font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer py-1 ${
-                isCommunityActive ? 'text-white' : 'text-neutral-300 hover:text-white'
+                isCommunityActive ? 'text-[#0A0A0B] font-semibold' : 'text-neutral-600 hover:text-[#0A0A0B]'
               }`}
             >
               <span>Community</span>
@@ -200,7 +199,7 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
             </button>
 
             {openMenu === 'community' && (
-              <div className="absolute left-0 top-full mt-3 w-[340px] rounded-2xl bg-[#0B0C14]/95 backdrop-blur-xl border border-white/[0.12] p-2.5 shadow-[0_24px_60px_rgba(0,0,0,0.85)]">
+              <div className="absolute left-0 top-full mt-3 w-[340px] rounded-2xl bg-white border border-black/[0.08] p-2.5 shadow-[0_24px_60px_rgba(0,0,0,0.12)]">
                 {communityItems.map((item) => (
                   <button
                     key={item.route}
@@ -208,12 +207,24 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
                     onClick={() => go(item.route)}
                     className={`w-full text-left px-3.5 py-2.5 rounded-xl transition-colors cursor-pointer block ${
                       currentRoute === item.route
-                        ? 'bg-violet-500/15 text-white'
-                        : 'hover:bg-white/[0.05] text-neutral-200'
+                        ? 'bg-[#0A0A0B] text-white'
+                        : 'hover:bg-neutral-100 text-[#0A0A0B]'
                     }`}
                   >
-                    <div className="text-xs font-semibold text-white">{item.label}</div>
-                    <div className="text-[11px] text-neutral-400 mt-0.5">{item.desc}</div>
+                    <div
+                      className={`text-xs font-semibold ${
+                        currentRoute === item.route ? 'text-white' : 'text-[#0A0A0B]'
+                      }`}
+                    >
+                      {item.label}
+                    </div>
+                    <div
+                      className={`text-[11px] mt-0.5 ${
+                        currentRoute === item.route ? 'text-neutral-300' : 'text-neutral-600'
+                      }`}
+                    >
+                      {item.desc}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -224,7 +235,7 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
             type="button"
             onClick={() => go('blog')}
             className={`text-[13px] font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer py-1 ${
-              currentRoute === 'blog' ? 'text-white' : 'text-neutral-300 hover:text-white'
+              currentRoute === 'blog' ? 'text-[#0A0A0B] font-semibold' : 'text-neutral-600 hover:text-[#0A0A0B]'
             }`}
           >
             Blog
@@ -234,7 +245,7 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
             type="button"
             onClick={() => go('contact')}
             className={`text-[13px] font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer py-1 ${
-              currentRoute === 'contact' ? 'text-white' : 'text-neutral-300 hover:text-white'
+              currentRoute === 'contact' ? 'text-[#0A0A0B] font-semibold' : 'text-neutral-600 hover:text-[#0A0A0B]'
             }`}
           >
             Contact
@@ -248,10 +259,10 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
               type="button"
               onClick={() => go('shop')}
               aria-label={`Shop cart with ${cartCount} items`}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-neutral-200 border border-white/[0.12] rounded-lg hover:border-white/30 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-[#0A0A0B] bg-white border border-black/[0.12] rounded-lg hover:border-black/30 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              <ShoppingBag className="w-3.5 h-3.5 text-violet-300" />
-              <span className="font-mono tabular-nums">{cartCount}</span>
+              <ShoppingBag className="w-3.5 h-3.5 text-[#0A0A0B]" />
+              <span className="tabular-nums">{cartCount}</span>
             </button>
           )}
 
@@ -260,10 +271,10 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
               <button
                 type="button"
                 onClick={() => go('dashboard')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   currentRoute === 'dashboard'
-                    ? 'bg-white/15 border-violet-400/50 text-white'
-                    : 'border-white/[0.12] text-neutral-200 hover:text-white hover:border-white/25'
+                    ? 'bg-[#0A0A0B] border-[#0A0A0B] text-white'
+                    : 'bg-white border-black/[0.12] text-[#0A0A0B] hover:border-black/30'
                 }`}
               >
                 <LayoutDashboard className="w-3.5 h-3.5" />
@@ -274,10 +285,10 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
                 <button
                   type="button"
                   onClick={() => go('admin')}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border transition-all whitespace-nowrap shrink-0 cursor-pointer ${
                     currentRoute === 'admin'
-                      ? 'bg-violet-500 text-white'
-                      : 'bg-violet-500/20 text-violet-200 border border-violet-400/35 hover:bg-violet-500/30'
+                      ? 'bg-[#0A0A0B] text-white border-[#0A0A0B]'
+                      : 'bg-white text-[#0A0A0B] border-black/[0.12] hover:border-black/35'
                   }`}
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
@@ -292,7 +303,7 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
                   go('home');
                 }}
                 aria-label="Log out"
-                className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-neutral-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-neutral-600 hover:text-[#0A0A0B] hover:bg-black/[0.06] transition-colors cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -302,14 +313,14 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
               <button
                 type="button"
                 onClick={() => go('auth')}
-                className="px-3 py-2 text-xs font-medium text-neutral-200 hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                className="px-3 py-2 text-xs font-semibold text-neutral-700 hover:text-[#0A0A0B] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
                 Login
               </button>
               <button
                 type="button"
                 onClick={() => go('launch')}
-                className="px-4 py-2 text-xs font-semibold text-black bg-white rounded-lg hover:bg-neutral-200 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold text-white bg-[#0A0A0B] rounded-lg hover:bg-neutral-800 transition-colors shadow-[0_6px_16px_rgba(10,10,11,0.18)] whitespace-nowrap shrink-0 cursor-pointer"
               >
                 Get Started
               </button>
@@ -317,7 +328,7 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
           ) : (
             <div
               aria-hidden="true"
-              className="hidden md:block h-8 w-32 animate-pulse rounded-lg bg-white/[0.06]"
+              className="hidden md:block h-8 w-32 animate-pulse rounded-lg bg-black/[0.06]"
             />
           )}
 
@@ -327,7 +338,7 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
             onClick={() => setMobileOpen((prev) => !prev)}
             aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
             aria-expanded={mobileOpen}
-            className="xl:hidden inline-flex items-center justify-center w-11 h-11 rounded-lg text-neutral-200 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            className="xl:hidden inline-flex items-center justify-center w-11 h-11 rounded-lg text-neutral-700 hover:text-[#0A0A0B] hover:bg-black/[0.06] transition-colors cursor-pointer"
           >
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -336,7 +347,7 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
 
       {/* Responsive Drawer */}
       {mobileOpen && (
-        <div className="xl:hidden bg-[#06070D]/98 border-b border-white/10 px-6 py-5 max-h-[82vh] overflow-y-auto">
+        <div className="xl:hidden bg-white border-b border-black/[0.08] px-6 py-5 max-h-[82vh] overflow-y-auto shadow-xl">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {(
               [
@@ -363,8 +374,8 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
                 onClick={() => go(r)}
                 className={`text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
                   currentRoute === r
-                    ? 'bg-violet-500/20 text-white'
-                    : 'text-neutral-300 hover:bg-white/[0.06] hover:text-white'
+                    ? 'bg-[#0A0A0B] text-white'
+                    : 'text-neutral-700 hover:bg-neutral-100 hover:text-[#0A0A0B]'
                 }`}
               >
                 {label}
@@ -372,13 +383,13 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
             ))}
           </div>
 
-          <div className="mt-5 pt-4 border-t border-white/10 flex flex-wrap gap-3">
+          <div className="mt-5 pt-4 border-t border-black/[0.08] flex flex-wrap gap-3">
             {user ? (
               <>
                 <button
                   type="button"
                   onClick={() => go('dashboard')}
-                  className="flex-1 py-2.5 px-4 text-xs font-semibold text-white bg-white/10 rounded-lg cursor-pointer"
+                  className="flex-1 py-2.5 px-4 text-xs font-semibold text-white bg-[#0A0A0B] rounded-lg cursor-pointer"
                 >
                   Customer Dashboard
                 </button>
@@ -386,7 +397,7 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
                   <button
                     type="button"
                     onClick={() => go('admin')}
-                    className="flex-1 py-2.5 px-4 text-xs font-semibold text-white bg-violet-600 rounded-lg cursor-pointer"
+                    className="flex-1 py-2.5 px-4 text-xs font-semibold text-[#0A0A0B] bg-white border border-black/15 rounded-lg cursor-pointer"
                   >
                     Admin Panel
                   </button>
@@ -397,7 +408,7 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
                     logout();
                     go('home');
                   }}
-                  className="py-2.5 px-4 text-xs font-medium text-neutral-300 border border-white/15 rounded-lg cursor-pointer"
+                  className="py-2.5 px-4 text-xs font-medium text-neutral-700 border border-black/15 rounded-lg cursor-pointer"
                 >
                   Logout
                 </button>
@@ -407,14 +418,14 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
                 <button
                   type="button"
                   onClick={() => go('auth')}
-                  className="flex-1 py-2.5 px-4 text-xs font-semibold text-white border border-white/20 rounded-lg cursor-pointer"
+                  className="flex-1 py-2.5 px-4 text-xs font-semibold text-[#0A0A0B] border border-black/15 rounded-lg cursor-pointer"
                 >
                   Login / Register
                 </button>
                 <button
                   type="button"
                   onClick={() => go('launch')}
-                  className="flex-1 py-2.5 px-4 text-xs font-semibold text-black bg-white rounded-lg cursor-pointer"
+                  className="flex-1 py-2.5 px-4 text-xs font-semibold text-white bg-[#0A0A0B] rounded-lg cursor-pointer"
                 >
                   Get Started
                 </button>

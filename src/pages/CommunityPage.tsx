@@ -1,4 +1,5 @@
 import { ArrowRight, Calendar, Globe, MessageSquare, Sparkles, Users } from 'lucide-react';
+import { Surface3D } from '../components/Surface3D';
 import { useAppContext } from '../context/AppContext';
 import { PageRoute } from '../types/navigation';
 
@@ -13,26 +14,21 @@ export function CommunityPage({ onNavigate }: CommunityPageProps) {
   const qualified = siteData?.launch?.earlyAccessQualified ?? 0;
 
   return (
-    <div className="bg-black text-white">
-      <section className="relative overflow-hidden helzerx-hero-aura pt-20 pb-24 md:pt-28 md:pb-32">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-[440px] left-1/2 -translate-x-1/2 w-[165%] h-[540px] rounded-[100%] bg-black border-t border-violet-300/40 shadow-[0_-20px_80px_rgba(167,139,250,0.35)]"
-        />
-
+    <div className="bg-[#F4F4F5] text-[#0A0A0B]">
+      <section className="relative overflow-hidden helzerx-studio-hero pt-16 pb-20 md:pt-24 md:pb-24 border-b border-black/[0.06]">
         <div className="relative z-10 max-w-[1040px] mx-auto px-6 text-center">
-          <div className="text-xs md:text-sm font-medium text-violet-200/85 mb-6">
-            <span>HelzerX Community</span>
-            <span aria-hidden="true" className="mx-2 text-cyan-400/70">·</span>
+          <div className="text-xs font-medium text-neutral-600 mb-6">
+            <span className="font-semibold text-[#0A0A0B]">HelzerX Community</span>
+            <span aria-hidden="true" className="mx-2 text-neutral-400">·</span>
             <span>Server Owners</span>
-            <span aria-hidden="true" className="mx-2 text-cyan-400/70">·</span>
+            <span aria-hidden="true" className="mx-2 text-neutral-400">·</span>
             <span>Developers &amp; Creators</span>
           </div>
 
-          <h1 className="text-[clamp(2.5rem,5.5vw,4.25rem)] font-extrabold tracking-[-0.03em] leading-[1.04] text-white max-w-[18ch] mx-auto">
-            Built With Global Builders
+          <h1 className="text-[clamp(2.6rem,6vw,4.75rem)] font-extrabold tracking-[-0.04em] leading-[0.98] helzerx-dotted-text max-w-[16ch] mx-auto pb-2">
+            built with builders.
           </h1>
-          <p className="mt-6 max-w-[58ch] mx-auto text-base md:text-lg leading-[1.6] text-neutral-200/90">
+          <p className="mt-6 max-w-[58ch] mx-auto text-base md:text-lg leading-[1.65] text-neutral-600">
             Connect with infrastructure engineers, game network founders, Studio designers, and
             early-access members preparing for the January 1, 2027 launch.
           </p>
@@ -41,14 +37,14 @@ export function CommunityPage({ onNavigate }: CommunityPageProps) {
             <button
               type="button"
               onClick={() => onNavigate('launch')}
-              className="px-6 py-3 text-sm font-semibold text-black bg-white rounded-lg hover:bg-neutral-200 transition-colors cursor-pointer"
+              className="px-6 py-3 text-sm font-semibold text-white bg-[#0A0A0B] rounded-xl hover:bg-neutral-800 transition-colors cursor-pointer shadow-[0_10px_24px_rgba(10,10,11,0.18)]"
             >
               Join Launch 2027 Early Access
             </button>
             <button
               type="button"
               onClick={() => onNavigate('partners')}
-              className="px-6 py-3 text-sm font-semibold text-white bg-white/[0.06] border border-white/15 rounded-lg hover:bg-white/[0.12] transition-colors cursor-pointer"
+              className="px-6 py-3 text-sm font-semibold text-[#0A0A0B] bg-white border border-black/15 rounded-xl hover:border-black/35 transition-colors cursor-pointer shadow-sm"
             >
               Explore Partner Program
             </button>
@@ -56,42 +52,58 @@ export function CommunityPage({ onNavigate }: CommunityPageProps) {
         </div>
       </section>
 
-      <section className="bg-black py-16 md:py-24">
+      <section className="bg-[#F4F4F5] py-16 md:py-24">
         <div className="max-w-[1160px] mx-auto px-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-14">
-            <div className="rounded-2xl bg-[#08080F] border border-white/[0.1] p-7">
-              <Users className="w-5 h-5 text-cyan-300" />
-              <div className="mt-4 font-mono text-2xl font-bold text-white tabular-nums">
-                {totalPreorders}+ Pre-Orders
+            <Surface3D intensity={13} delay={0.04}>
+              <div className="p-7 h-full">
+                <div className="w-11 h-11 rounded-2xl bg-[#111114] text-white flex items-center justify-center shadow-[0_10px_20px_rgba(10,10,11,0.22)]">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div className="mt-5 text-2xl font-extrabold tracking-tight text-[#0A0A0B] tabular-nums">
+                  {totalPreorders}+ Pre-Orders
+                </div>
+                <p className="mt-2 text-xs text-neutral-600">
+                  Active pre-launch community reservations tracked live across helzerx.cyou.
+                </p>
               </div>
-              <p className="mt-2 text-xs text-neutral-400">
-                Active pre-launch community reservations tracked live across helzerx.cyou.
-              </p>
-            </div>
-            <div className="rounded-2xl bg-[#08080F] border border-white/[0.1] p-7">
-              <Sparkles className="w-5 h-5 text-violet-300" />
-              <div className="mt-4 font-mono text-2xl font-bold text-white tabular-nums">
-                {qualified} / 50 Qualified
+            </Surface3D>
+            <Surface3D intensity={13} delay={0.1}>
+              <div className="p-7 h-full">
+                <div className="w-11 h-11 rounded-2xl bg-[#111114] text-white flex items-center justify-center shadow-[0_10px_20px_rgba(10,10,11,0.22)]">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div className="mt-5 text-2xl font-extrabold tracking-tight text-[#0A0A0B] tabular-nums">
+                  {qualified} / 50 Qualified
+                </div>
+                <p className="mt-2 text-xs text-neutral-600">
+                  Verified pre-launch members locked in for an 8GB RAM launch server on Jan 1, 2027.
+                </p>
               </div>
-              <p className="mt-2 text-xs text-neutral-400">
-                Verified pre-launch members locked in for an 8GB RAM launch server on Jan 1, 2027.
-              </p>
-            </div>
-            <div className="rounded-2xl bg-[#08080F] border border-white/[0.1] p-7">
-              <Globe className="w-5 h-5 text-blue-300" />
-              <div className="mt-4 font-mono text-2xl font-bold text-white">International</div>
-              <p className="mt-2 text-xs text-neutral-400">
-                Open engineering updates, partner commissions, and global creative collaboration.
-              </p>
-            </div>
+            </Surface3D>
+            <Surface3D intensity={13} delay={0.16}>
+              <div className="p-7 h-full">
+                <div className="w-11 h-11 rounded-2xl bg-[#111114] text-white flex items-center justify-center shadow-[0_10px_20px_rgba(10,10,11,0.22)]">
+                  <Globe className="w-5 h-5" />
+                </div>
+                <div className="mt-5 text-2xl font-extrabold tracking-tight text-[#0A0A0B]">
+                  International
+                </div>
+                <p className="mt-2 text-xs text-neutral-600">
+                  Open engineering updates, partner commissions, and global creative collaboration.
+                </p>
+              </div>
+            </Surface3D>
           </div>
 
           <div className="flex items-center justify-between gap-4 mb-6">
-            <h2 className="text-2xl font-bold text-white">Community Bulletins &amp; Announcements</h2>
+            <h2 className="text-2xl font-extrabold text-[#0A0A0B] tracking-tight">
+              Community Bulletins &amp; Announcements
+            </h2>
             <button
               type="button"
               onClick={() => onNavigate('blog')}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-cyan-300 hover:text-white cursor-pointer"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0A0A0B] hover:text-neutral-600 cursor-pointer"
             >
               <span>Read Engineering Blog</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -99,52 +111,56 @@ export function CommunityPage({ onNavigate }: CommunityPageProps) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {announcements.map((item) => (
-              <article
-                key={item.id}
-                className="rounded-2xl bg-[#08080C] border border-white/[0.1] p-7"
-              >
-                <div className="flex items-center justify-between text-xs text-neutral-400">
-                  <span className="font-mono uppercase text-violet-300">{item.type}</span>
-                  <span className="inline-flex items-center gap-1 font-mono tabular-nums">
-                    <Calendar className="w-3.5 h-3.5" />
-                    {new Date(item.created_at).toLocaleDateString()}
-                  </span>
-                </div>
-                <h3 className="mt-3 text-lg font-bold text-white">{item.title}</h3>
-                <p className="mt-2 text-sm text-neutral-400 leading-relaxed">{item.body}</p>
-              </article>
+            {announcements.map((item, idx) => (
+              <Surface3D key={item.id} intensity={11} delay={idx * 0.05}>
+                <article className="p-7 h-full">
+                  <div className="flex items-center justify-between text-xs text-neutral-500">
+                    <span className="font-semibold capitalize text-[#0A0A0B]">{item.type}</span>
+                    <span className="inline-flex items-center gap-1 tabular-nums">
+                      <Calendar className="w-3.5 h-3.5" />
+                      {new Date(item.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <h3 className="mt-3 text-lg font-bold text-[#0A0A0B]">{item.title}</h3>
+                  <p className="mt-2 text-sm text-neutral-600 leading-relaxed">{item.body}</p>
+                </article>
+              </Surface3D>
             ))}
           </div>
 
-          <div className="mt-12 rounded-2xl bg-[#08080F] border border-white/[0.12] p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div>
-              <div className="flex items-center gap-2 text-xs font-mono text-cyan-300">
-                <MessageSquare className="w-4 h-4" />
-                <span>DIRECT CHANNELS</span>
+          <Surface3D variant="dark" intensity={8} className="mt-12 rounded-3xl">
+            <div className="p-8 md:p-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div>
+                <div className="flex items-center gap-2 text-xs font-medium text-neutral-300">
+                  <MessageSquare className="w-4 h-4 text-white" />
+                  <span>Direct Channels</span>
+                </div>
+                <h3 className="mt-2 text-xl font-bold text-white">
+                  Need Technical Assistance or Partnership?
+                </h3>
+                <p className="mt-1 text-sm text-neutral-300">
+                  Create a tracked support ticket or apply to join the HelzerX Staff &amp; Partner
+                  network.
+                </p>
               </div>
-              <h3 className="mt-2 text-xl font-bold text-white">Need Technical Assistance or Partnership?</h3>
-              <p className="mt-1 text-sm text-neutral-400">
-                Create a tracked support ticket or apply to join the HelzerX Staff &amp; Partner network.
-              </p>
+              <div className="flex flex-wrap gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onNavigate('support')}
+                  className="px-5 py-2.5 text-xs font-bold text-[#0A0A0B] bg-white rounded-lg hover:bg-neutral-200 transition-colors cursor-pointer"
+                >
+                  Support Center
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onNavigate('careers')}
+                  className="px-5 py-2.5 text-xs font-semibold text-white border border-white/25 rounded-lg hover:border-white/50 transition-colors cursor-pointer"
+                >
+                  Open Careers
+                </button>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-3 shrink-0">
-              <button
-                type="button"
-                onClick={() => onNavigate('support')}
-                className="px-5 py-2.5 text-xs font-semibold text-black bg-white rounded-lg hover:bg-neutral-200 transition-colors cursor-pointer"
-              >
-                Support Center
-              </button>
-              <button
-                type="button"
-                onClick={() => onNavigate('careers')}
-                className="px-5 py-2.5 text-xs font-semibold text-white border border-white/15 rounded-lg hover:border-white/30 transition-colors cursor-pointer"
-              >
-                Open Careers
-              </button>
-            </div>
-          </div>
+          </Surface3D>
         </div>
       </section>
     </div>

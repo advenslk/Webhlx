@@ -8,7 +8,7 @@ import { lazy, Suspense, useEffect, useState, type ComponentType } from 'react';
 import { Footer } from './components/Footer';
 import { Navbar } from './components/Navbar';
 import { AppProvider } from './context/AppContext';
-import { DivisionId } from './data/helzerxData';
+import { DivisionId } from './lib/platformData';
 import { HomePage } from './pages/HomePage';
 import { PageRoute, ROUTE_PATHS, parseRouteFromHash } from './types/navigation';
 
@@ -37,7 +37,7 @@ const SupportPage = lazyPage(() => import('./pages/SupportPage').then((m) => ({ 
 
 function PageFallback() {
   return (
-    <div className="min-h-[60vh] px-6 py-24">
+    <div className="min-h-[60vh] px-6 py-24 bg-[#F4F4F5]">
       <div className="mx-auto max-w-[1120px] space-y-6">
         <div className="helzerx-shimmer h-10 w-2/3 max-w-md rounded-lg" />
         <div className="helzerx-shimmer h-4 w-1/2 max-w-lg rounded" />
@@ -129,7 +129,7 @@ function AppShell() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
+    <div className="min-h-screen bg-[#F4F4F5] text-[#0A0A0B] flex flex-col">
       <Navbar currentRoute={route} onNavigate={(r) => navigateTo(r)} />
       <main className="flex-1">
         <AnimatePresence mode="wait" initial={false}>

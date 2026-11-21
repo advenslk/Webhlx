@@ -11,6 +11,8 @@ import {
   X,
 } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { DivisionBanner3D } from '../components/DivisionBanner3D';
+import { Surface3D } from '../components/Surface3D';
 import { useAppContext } from '../context/AppContext';
 import { ApiError, apiRequest } from '../lib/api';
 import { PageRoute } from '../types/navigation';
@@ -231,41 +233,63 @@ export function ShopPage({ onNavigate }: ShopPageProps) {
     : [];
 
   return (
-    <div className="bg-black text-white">
-      {/* Hero */}
-      <section className="relative overflow-hidden helzerx-hero-aura pt-20 pb-24 md:pt-28 md:pb-32">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-[440px] left-1/2 -translate-x-1/2 w-[165%] h-[540px] rounded-[100%] bg-black border-t border-violet-300/40 shadow-[0_-20px_80px_rgba(167,139,250,0.35)]"
-        />
-
-        <div className="relative z-10 max-w-[1040px] mx-auto px-6 text-center">
-          <div className="text-xs md:text-sm font-medium text-violet-200/85 mb-6">
-            <span>HelzerX Shop</span>
-            <span aria-hidden="true" className="mx-2 text-cyan-400/70">·</span>
-            <span>Enterprise Hardware</span>
-            <span aria-hidden="true" className="mx-2 text-cyan-400/70">·</span>
-            <span>Digital Licenses</span>
-            <span aria-hidden="true" className="mx-2 text-cyan-400/70">·</span>
-            <span>Coupon: HELZERX2027 (15% Off)</span>
-          </div>
-
-          <h1 className="text-[clamp(2.5rem,5.5vw,4.25rem)] font-extrabold tracking-[-0.03em] leading-[1.04] text-white max-w-[18ch] mx-auto">
-            Engineered Hardware &amp; Software Kits
-          </h1>
-          <p className="mt-6 max-w-[58ch] mx-auto text-base md:text-lg leading-[1.6] text-neutral-200/90">
-            Direct enterprise store with live inventory, verified customer reviews, wishlist, coupon
-            support, and tracked invoice generation.
-          </p>
-        </div>
-      </section>
+    <div className="bg-[#F4F4F5] text-[#0A0A0B]">
+      {/* Smooth Full-Bleed Atmospheric Shop Banner Background + Floating 3D Cards */}
+      <DivisionBanner3D
+        imageSrc="/assets/aistudio/file_00000000ca6c821196ff7de47bf63b50_2269b23b.png"
+        imageAlt="HelzerX SHOP — Premium Store Background Banner"
+        divisionLabel="HelzerX Shop · Enterprise Hardware · Software Kits · Code HELZERX2027 (15% Off)"
+        description="Direct enterprise storefront with live inventory counts, verified buyer reviews, coupon savings, and automatic invoice tracking."
+        fallbackTitle="HelzerX Shop"
+        fallbackSubtitle="Premium Store · Enterprise Hardware & Software Licenses"
+        icon={<ShoppingBag className="w-6 h-6" />}
+        actions={
+          <>
+            <a
+              href="#shop-catalog"
+              className="px-6 py-3 text-sm font-semibold text-[#0A0A0B] bg-white rounded-xl hover:bg-neutral-100 transition-colors shadow-[0_14px_34px_rgba(0,0,0,0.35)] cursor-pointer"
+            >
+              Browse Hardware &amp; Kits
+            </a>
+            <button
+              type="button"
+              onClick={() => onNavigate(user ? 'dashboard' : 'auth')}
+              className="px-6 py-3 text-sm font-semibold text-white bg-white/15 backdrop-blur-md border border-white/25 rounded-xl hover:bg-white/25 transition-colors cursor-pointer"
+            >
+              {user ? 'View Order Invoices' : 'Sign In for Checkout'}
+            </button>
+          </>
+        }
+        specs={[
+          {
+            value: 'Live Sync',
+            label: 'Stock Ledger',
+            detail: 'Real-time database inventory validation on every cart checkout.',
+          },
+          {
+            value: '15% Off',
+            label: 'Code HELZERX2027',
+            detail: 'Validated server-side coupon deductions across hardware and kits.',
+          },
+          {
+            value: 'Verified',
+            label: 'Customer Reviews',
+            detail: 'Authentic buyer ratings attached to active storefront items.',
+          },
+          {
+            value: 'Tracked',
+            label: 'Itemized Invoices',
+            detail: 'Instant invoice numbering saved inside your unified dashboard.',
+          },
+        ]}
+      />
 
       {/* Catalog + Cart */}
-      <section className="bg-black py-14 md:py-20">
+      <section id="shop-catalog" className="bg-[#F4F4F5] py-12 md:py-18">
         <div className="max-w-[1260px] mx-auto px-6">
           {/* Filter / Search / Sort Bar */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-8 border-b border-white/[0.08]">
-            <div className="inline-flex flex-wrap items-center gap-1 p-1 rounded-xl bg-white/[0.05] border border-white/[0.1]">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-8 border-b border-black/[0.08]">
+            <div className="inline-flex flex-wrap items-center gap-1 p-1.5 rounded-xl bg-white border border-black/[0.08] shadow-sm">
               {categories.map((cat) => (
                 <button
                   key={cat}
@@ -273,8 +297,8 @@ export function ShopPage({ onNavigate }: ShopPageProps) {
                   onClick={() => setCategory(cat)}
                   className={`px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
                     category === cat
-                      ? 'bg-white text-black'
-                      : 'text-neutral-300 hover:text-white hover:bg-white/[0.06]'
+                      ? 'bg-[#0A0A0B] text-white'
+                      : 'text-neutral-600 hover:text-[#0A0A0B] hover:bg-neutral-100'
                   }`}
                 >
                   {cat}
@@ -290,14 +314,14 @@ export function ShopPage({ onNavigate }: ShopPageProps) {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search hardware or kits..."
-                  className="pl-9 pr-3 py-2 rounded-lg bg-[#08080F] border border-white/[0.12] text-xs text-white placeholder:text-neutral-500 focus:outline-none focus:border-violet-400"
+                  className="pl-9 pr-3 py-2 rounded-xl bg-white border border-black/[0.12] text-xs text-[#0A0A0B] placeholder:text-neutral-400 focus:outline-none focus:border-black"
                 />
               </div>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as 'featured' | 'price-asc' | 'price-desc')}
                 aria-label="Sort products"
-                className="px-3 py-2 rounded-lg bg-[#08080F] border border-white/[0.12] text-xs text-white focus:outline-none focus:border-violet-400"
+                className="px-3 py-2 rounded-xl bg-white border border-black/[0.12] text-xs text-[#0A0A0B] focus:outline-none focus:border-black"
               >
                 <option value="featured">Featured</option>
                 <option value="price-asc">Price: Low to High</option>
@@ -309,13 +333,13 @@ export function ShopPage({ onNavigate }: ShopPageProps) {
           <div className="mt-10 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 items-start">
             {/* Products Grid */}
             {loading ? (
-              <div className="py-16 flex items-center justify-center gap-2 text-sm text-neutral-400">
-                <Loader2 className="w-4 h-4 animate-spin text-violet-300" />
+              <div className="py-16 flex items-center justify-center gap-2 text-sm text-neutral-600">
+                <Loader2 className="w-4 h-4 animate-spin text-[#0A0A0B]" />
                 <span>Loading Shop catalog...</span>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {visibleProducts.map((product) => {
+                {visibleProducts.map((product, idx) => {
                   let specs: string[] = [];
                   try {
                     specs = JSON.parse(product.specs_json || '[]');
@@ -333,117 +357,121 @@ export function ShopPage({ onNavigate }: ShopPageProps) {
                       : null;
 
                   return (
-                    <article
-                      key={product.id}
-                      className="flex flex-col justify-between rounded-2xl bg-[#08080C] border border-white/[0.1] p-7"
-                    >
-                      <div>
-                        <div className="flex items-center justify-between gap-2 text-xs">
-                          <span className="font-mono text-cyan-300">{product.category}</span>
-                          <div className="flex items-center gap-3">
-                            <span className="text-neutral-400 tabular-nums">
-                              {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+                    <Surface3D key={product.id} intensity={12} delay={idx * 0.05}>
+                      <article className="h-full flex flex-col justify-between p-7 text-left">
+                        <div>
+                          <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="font-semibold text-neutral-500">{product.category}</span>
+                            <div className="flex items-center gap-2.5">
+                              <span className="text-neutral-500 tabular-nums">
+                                {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => toggleWishlist(product.id)}
+                                aria-label="Toggle wishlist"
+                                className={`p-1 rounded transition-colors cursor-pointer ${
+                                  wished ? 'text-rose-500' : 'text-neutral-400 hover:text-[#0A0A0B]'
+                                }`}
+                              >
+                                <Heart className="w-4 h-4" fill={wished ? 'currentColor' : 'none'} />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 flex items-center justify-between gap-3">
+                            <span className="text-3xl font-extrabold text-[#0A0A0B] tabular-nums tracking-tight">
+                              ${product.price_usd.toLocaleString()}
                             </span>
-                            <button
-                              type="button"
-                              onClick={() => toggleWishlist(product.id)}
-                              aria-label="Toggle wishlist"
-                              className={`p-1 rounded transition-colors cursor-pointer ${
-                                wished ? 'text-rose-400' : 'text-neutral-500 hover:text-white'
-                              }`}
-                            >
-                              <Heart className="w-4 h-4" fill={wished ? 'currentColor' : 'none'} />
-                            </button>
+                            {avgRating && (
+                              <span className="inline-flex items-center gap-1 text-xs text-amber-600 font-semibold tabular-nums">
+                                <Star className="w-3.5 h-3.5" fill="currentColor" />
+                                {avgRating} ({productReviews.length})
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="mt-4 pt-4 border-t border-black/[0.08]">
+                            <h2 className="text-lg font-bold text-[#0A0A0B] leading-snug">
+                              {product.name}
+                            </h2>
+                            <p className="mt-2 text-sm text-neutral-600 leading-relaxed">
+                              {product.summary}
+                            </p>
+                          </div>
+
+                          <div className="mt-5 pt-4 border-t border-black/[0.06] flex flex-wrap gap-x-3 gap-y-1 text-xs text-neutral-700">
+                            {specs.map((spec, i) => (
+                              <span key={spec} className="inline-flex items-center gap-2">
+                                <span>{spec}</span>
+                                {i < specs.length - 1 && (
+                                  <span aria-hidden="true" className="text-neutral-400">·</span>
+                                )}
+                              </span>
+                            ))}
                           </div>
                         </div>
 
-                        <h2 className="mt-3 text-lg font-bold text-white">{product.name}</h2>
-                        <div className="mt-2 flex items-center justify-between">
-                          <span className="font-mono text-2xl font-bold text-white tabular-nums">
-                            ${product.price_usd.toLocaleString()}
-                          </span>
-                          {avgRating && (
-                            <span className="inline-flex items-center gap-1 text-xs text-amber-300 font-mono">
-                              <Star className="w-3.5 h-3.5" fill="currentColor" />
-                              {avgRating} ({productReviews.length})
-                            </span>
-                          )}
+                        <div className="mt-6 flex gap-2">
+                          <button
+                            type="button"
+                            disabled={product.stock <= 0}
+                            onClick={() =>
+                              addToCart({
+                                productId: product.id,
+                                name: product.name,
+                                priceUsd: product.price_usd,
+                              })
+                            }
+                            className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 text-xs font-semibold text-white bg-[#0A0A0B] rounded-xl hover:bg-neutral-800 disabled:opacity-40 transition-colors cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>{inCart > 0 ? `Add Another (${inCart})` : 'Add to Cart'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedProduct(product)}
+                            className="px-3.5 py-2.5 text-xs font-semibold text-[#0A0A0B] border border-black/15 rounded-xl hover:border-black/35 cursor-pointer"
+                          >
+                            Details
+                          </button>
                         </div>
-
-                        <p className="mt-3 text-sm text-neutral-400 leading-relaxed">
-                          {product.summary}
-                        </p>
-
-                        <div className="mt-5 pt-4 border-t border-white/[0.08] flex flex-wrap gap-x-3 gap-y-1 text-xs text-neutral-300">
-                          {specs.map((spec, idx) => (
-                            <span key={spec} className="inline-flex items-center gap-2">
-                              <span>{spec}</span>
-                              {idx < specs.length - 1 && (
-                                <span aria-hidden="true" className="text-neutral-600">·</span>
-                              )}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="mt-6 flex gap-2">
-                        <button
-                          type="button"
-                          disabled={product.stock <= 0}
-                          onClick={() =>
-                            addToCart({
-                              productId: product.id,
-                              name: product.name,
-                              priceUsd: product.price_usd,
-                            })
-                          }
-                          className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 text-xs font-semibold text-black bg-white rounded-lg hover:bg-neutral-200 disabled:opacity-40 transition-colors cursor-pointer"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>{inCart > 0 ? `Add Another (${inCart})` : 'Add to Cart'}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedProduct(product)}
-                          className="px-3.5 py-2.5 text-xs font-semibold text-neutral-200 border border-white/15 rounded-lg hover:border-white/30 cursor-pointer"
-                        >
-                          Details
-                        </button>
-                      </div>
-                    </article>
+                      </article>
+                    </Surface3D>
                   );
                 })}
               </div>
             )}
 
             {/* Cart & Real Order Checkout Sidebar */}
-            <aside className="rounded-2xl bg-[#0B0B12] border border-white/[0.12] p-6 lg:sticky lg:top-24 space-y-5">
-              <div className="flex items-center justify-between gap-2 pb-4 border-b border-white/[0.08]">
-                <div className="flex items-center gap-2 text-sm font-bold text-white">
-                  <ShoppingBag className="w-4 h-4 text-violet-300" />
+            <aside className="helzerx-studio-card rounded-[22px] border border-black/[0.08] p-6 lg:sticky lg:top-24 space-y-5">
+              <div className="flex items-center justify-between gap-2 pb-4 border-b border-black/[0.08]">
+                <div className="flex items-center gap-2 text-sm font-bold text-[#0A0A0B]">
+                  <ShoppingBag className="w-4 h-4 text-[#0A0A0B]" />
                   <span>Shopping Cart</span>
                 </div>
-                <span className="text-xs font-mono text-neutral-400 tabular-nums">
+                <span className="text-xs font-medium text-neutral-600 tabular-nums">
                   {cart.reduce((s, i) => s + i.quantity, 0)} items
                 </span>
               </div>
 
               {orderConfirmation && (
-                <div className="rounded-xl bg-emerald-500/10 border border-emerald-400/30 p-4 space-y-2 text-xs">
-                  <div className="flex items-center gap-2 font-bold text-emerald-300">
+                <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 space-y-2 text-xs">
+                  <div className="flex items-center gap-2 font-bold text-emerald-700">
                     <CheckCircle2 className="w-4 h-4" />
                     <span>Order {orderConfirmation.orderId}</span>
                   </div>
-                  <div className="font-mono text-neutral-200">
-                    Invoice: {orderConfirmation.invoiceNumber} · ${orderConfirmation.totalUsd.toLocaleString()}
+                  <div className="font-semibold text-[#0A0A0B]">
+                    Invoice: {orderConfirmation.invoiceNumber} · $
+                    {orderConfirmation.totalUsd.toLocaleString()}
                   </div>
-                  <p className="text-neutral-300 leading-relaxed">
+                  <p className="text-neutral-700 leading-relaxed">
                     {orderConfirmation.paymentNotice}
                   </p>
                   <button
                     type="button"
                     onClick={() => onNavigate('dashboard')}
-                    className="text-cyan-300 font-semibold hover:text-white cursor-pointer"
+                    className="text-[#0A0A0B] font-bold hover:underline cursor-pointer"
                   >
                     View Order in Dashboard →
                   </button>
@@ -451,7 +479,7 @@ export function ShopPage({ onNavigate }: ShopPageProps) {
               )}
 
               {cart.length === 0 ? (
-                <p className="py-6 text-xs text-neutral-400 text-center">
+                <p className="py-6 text-xs text-neutral-600 text-center">
                   Your cart is empty. Add hardware or software licenses from the catalog.
                 </p>
               ) : (
@@ -460,15 +488,17 @@ export function ShopPage({ onNavigate }: ShopPageProps) {
                     {cart.map((item) => (
                       <div
                         key={item.productId}
-                        className="flex items-start justify-between gap-3 py-2 border-b border-white/[0.06]"
+                        className="flex items-start justify-between gap-3 py-2 border-b border-black/[0.06]"
                       >
                         <div className="min-w-0">
-                          <div className="text-xs font-semibold text-white truncate">{item.name}</div>
-                          <div className="mt-1 flex items-center gap-2 text-xs text-neutral-400 font-mono tabular-nums">
+                          <div className="text-xs font-bold text-[#0A0A0B] truncate">
+                            {item.name}
+                          </div>
+                          <div className="mt-1 flex items-center gap-2 text-xs text-neutral-600 tabular-nums">
                             <button
                               type="button"
                               onClick={() => updateCartQty(item.productId, item.quantity - 1)}
-                              className="w-5 h-5 rounded bg-white/10 text-white cursor-pointer"
+                              className="w-5 h-5 rounded bg-neutral-200 text-[#0A0A0B] font-bold cursor-pointer"
                             >
                               -
                             </button>
@@ -476,7 +506,7 @@ export function ShopPage({ onNavigate }: ShopPageProps) {
                             <button
                               type="button"
                               onClick={() => updateCartQty(item.productId, item.quantity + 1)}
-                              className="w-5 h-5 rounded bg-white/10 text-white cursor-pointer"
+                              className="w-5 h-5 rounded bg-neutral-200 text-[#0A0A0B] font-bold cursor-pointer"
                             >
                               +
                             </button>
@@ -487,7 +517,7 @@ export function ShopPage({ onNavigate }: ShopPageProps) {
                           type="button"
                           onClick={() => updateCartQty(item.productId, 0)}
                           aria-label={`Remove ${item.name}`}
-                          className="text-neutral-500 hover:text-rose-400 p-1 cursor-pointer"
+                          className="text-neutral-500 hover:text-rose-700 p-1 cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -505,23 +535,23 @@ export function ShopPage({ onNavigate }: ShopPageProps) {
                           value={couponInput}
                           onChange={(e) => setCouponInput(e.target.value)}
                           placeholder="Coupon (HELZERX2027)"
-                          className="w-full pl-8 pr-2.5 py-2 rounded-lg bg-black border border-white/[0.12] text-xs text-white uppercase focus:outline-none focus:border-violet-400"
+                          className="w-full pl-8 pr-2.5 py-2 rounded-xl bg-[#F8F8FA] border border-black/[0.12] text-xs text-[#0A0A0B] uppercase focus:outline-none focus:border-black"
                         />
                       </div>
                       <button
                         type="button"
                         onClick={() => void handleApplyCoupon()}
-                        className="px-3 py-2 text-xs font-semibold text-white bg-white/[0.08] border border-white/15 rounded-lg hover:bg-white/[0.15] cursor-pointer"
+                        className="px-3 py-2 text-xs font-semibold text-[#0A0A0B] bg-[#F4F4F5] border border-black/15 rounded-xl hover:bg-neutral-200 cursor-pointer"
                       >
                         Apply
                       </button>
                     </div>
-                    {couponMsg && <p className="text-xs text-cyan-300">{couponMsg}</p>}
+                    {couponMsg && <p className="text-xs font-semibold text-[#0A0A0B]">{couponMsg}</p>}
                   </div>
 
                   {/* Shipping / Billing Address */}
                   <div>
-                    <label className="block text-xs font-medium text-neutral-300 mb-1.5">
+                    <label className="block text-xs font-semibold text-[#0A0A0B] mb-1.5">
                       Shipping / Billing Address
                     </label>
                     <textarea
@@ -529,35 +559,35 @@ export function ShopPage({ onNavigate }: ShopPageProps) {
                       value={shippingAddress}
                       onChange={(e) => setShippingAddress(e.target.value)}
                       placeholder="Street, City, Country, Postal Code"
-                      className="w-full rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-400"
+                      className="w-full rounded-xl bg-[#F8F8FA] border border-black/[0.12] px-3 py-2 text-xs text-[#0A0A0B] focus:outline-none focus:border-black"
                     />
                   </div>
 
-                  <div className="space-y-1.5 pt-2 border-t border-white/[0.08] text-xs">
-                    <div className="flex justify-between text-neutral-400">
+                  <div className="space-y-1.5 pt-2 border-t border-black/[0.08] text-xs">
+                    <div className="flex justify-between text-neutral-600">
                       <span>Subtotal</span>
-                      <span className="font-mono tabular-nums">${subtotal.toLocaleString()}</span>
+                      <span className="tabular-nums">${subtotal.toLocaleString()}</span>
                     </div>
                     {discountUsd > 0 && (
-                      <div className="flex justify-between text-cyan-300">
+                      <div className="flex justify-between text-[#0A0A0B] font-semibold">
                         <span>Discount ({appliedCoupon?.code})</span>
-                        <span className="font-mono tabular-nums">-${discountUsd.toLocaleString()}</span>
+                        <span className="tabular-nums">-${discountUsd.toLocaleString()}</span>
                       </div>
                     )}
-                    <div className="flex justify-between text-sm font-bold text-white pt-1">
+                    <div className="flex justify-between text-sm font-extrabold text-[#0A0A0B] pt-1">
                       <span>Total</span>
-                      <span className="font-mono tabular-nums">${totalUsd.toLocaleString()}</span>
+                      <span className="tabular-nums">${totalUsd.toLocaleString()}</span>
                     </div>
                   </div>
 
-                  <div className="text-[11px] text-neutral-400 leading-relaxed bg-black/50 border border-white/[0.07] rounded-lg p-2.5">
+                  <div className="text-[11px] text-neutral-600 leading-relaxed bg-[#F8F8FA] border border-black/[0.08] rounded-xl p-2.5">
                     {stripeConfigured
                       ? 'Stripe billing enabled. Order creates an invoice awaiting Stripe confirmation.'
-                      : 'Note: STRIPE_SECRET_KEY is not configured yet. Orders save with status pending_payment & unpaid invoice—never fake-charged.'}
+                      : 'Note: Stripe live key is not configured yet. Orders save with pending payment & unpaid invoice.'}
                   </div>
 
                   {checkoutError && (
-                    <p role="alert" className="text-xs text-rose-400 font-medium">
+                    <p role="alert" className="text-xs text-rose-700 font-medium">
                       {checkoutError}
                     </p>
                   )}
@@ -565,7 +595,7 @@ export function ShopPage({ onNavigate }: ShopPageProps) {
                   <button
                     type="submit"
                     disabled={checkoutSubmitting}
-                    className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 text-xs font-semibold text-black bg-white rounded-lg hover:bg-neutral-200 disabled:opacity-60 transition-colors cursor-pointer"
+                    className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 text-xs font-semibold text-white bg-[#0A0A0B] rounded-xl hover:bg-neutral-800 disabled:opacity-60 transition-colors cursor-pointer"
                   >
                     {checkoutSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                     <span>{user ? 'Create Order & Invoice' : 'Sign In to Checkout'}</span>
@@ -582,59 +612,67 @@ export function ShopPage({ onNavigate }: ShopPageProps) {
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/55 backdrop-blur-sm flex items-center justify-center p-4"
         >
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-[#0A0A12] border border-white/[0.15] p-6 md:p-8 space-y-6">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-[24px] bg-white border border-black/[0.12] shadow-2xl p-6 md:p-8 space-y-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="text-xs font-mono text-cyan-300">{selectedProduct.category}</div>
-                <h3 className="mt-1 text-2xl font-bold text-white">{selectedProduct.name}</h3>
-                <div className="mt-2 font-mono text-xl font-bold text-white tabular-nums">
-                  ${selectedProduct.price_usd.toLocaleString()} · {selectedProduct.stock} units available
+                <div className="text-xs font-semibold text-neutral-500">
+                  {selectedProduct.category}
+                </div>
+                <h3 className="mt-1 text-2xl font-bold text-[#0A0A0B]">{selectedProduct.name}</h3>
+                <div className="mt-2 text-xl font-extrabold text-[#0A0A0B] tabular-nums">
+                  ${selectedProduct.price_usd.toLocaleString()} · {selectedProduct.stock} units
+                  available
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedProduct(null)}
                 aria-label="Close product details"
-                className="p-2 rounded-lg text-neutral-400 hover:text-white hover:bg-white/10 cursor-pointer"
+                className="p-2 rounded-xl text-neutral-500 hover:text-[#0A0A0B] hover:bg-neutral-100 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-sm text-neutral-300 leading-relaxed">{selectedProduct.summary}</p>
+            <p className="text-sm text-neutral-700 leading-relaxed">{selectedProduct.summary}</p>
 
-            <div className="pt-4 border-t border-white/[0.08]">
-              <h4 className="text-sm font-bold text-white mb-3">
+            <div className="pt-4 border-t border-black/[0.08]">
+              <h4 className="text-sm font-bold text-[#0A0A0B] mb-3">
                 Customer Reviews ({selectedReviews.length})
               </h4>
               {selectedReviews.length === 0 ? (
-                <p className="text-xs text-neutral-400">No verified customer reviews yet.</p>
+                <p className="text-xs text-neutral-600">No verified customer reviews yet.</p>
               ) : (
                 <div className="space-y-3 max-h-48 overflow-y-auto">
                   {selectedReviews.map((rev) => (
                     <div
                       key={rev.id}
-                      className="rounded-lg bg-black/60 border border-white/[0.08] p-3 text-xs"
+                      className="rounded-xl bg-[#F8F8FA] border border-black/[0.08] p-3 text-xs"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-white">{rev.author_name}</span>
-                        <span className="font-mono text-amber-300">{rev.rating} / 5 ★</span>
+                        <span className="font-semibold text-[#0A0A0B]">{rev.author_name}</span>
+                        <span className="font-bold text-amber-700 tabular-nums">
+                          {rev.rating} / 5 ★
+                        </span>
                       </div>
-                      <p className="mt-1 text-neutral-300">{rev.comment}</p>
+                      <p className="mt-1 text-neutral-700">{rev.comment}</p>
                     </div>
                   ))}
                 </div>
               )}
 
-              <form onSubmit={handleSubmitReview} className="mt-4 space-y-3 pt-4 border-t border-white/[0.08]">
+              <form
+                onSubmit={handleSubmitReview}
+                className="mt-4 space-y-3 pt-4 border-t border-black/[0.08]"
+              >
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs font-medium text-neutral-300">Write a Review</span>
+                  <span className="text-xs font-semibold text-[#0A0A0B]">Write a Review</span>
                   <select
                     value={reviewRating}
                     onChange={(e) => setReviewRating(Number(e.target.value))}
-                    className="rounded bg-black border border-white/[0.12] px-2.5 py-1 text-xs text-white"
+                    className="rounded-lg bg-[#F8F8FA] border border-black/[0.12] px-2.5 py-1 text-xs text-[#0A0A0B]"
                   >
                     {[5, 4, 3, 2, 1].map((n) => (
                       <option key={n} value={n}>
@@ -648,13 +686,13 @@ export function ShopPage({ onNavigate }: ShopPageProps) {
                   value={reviewComment}
                   onChange={(e) => setReviewComment(e.target.value)}
                   placeholder={user ? 'Share hardware or kit feedback...' : 'Sign in to leave a review'}
-                  className="w-full rounded-lg bg-black border border-white/[0.12] px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-400"
+                  className="w-full rounded-xl bg-[#F8F8FA] border border-black/[0.12] px-3 py-2 text-xs text-[#0A0A0B] focus:outline-none focus:border-black"
                 />
-                {reviewError && <p className="text-xs text-rose-400">{reviewError}</p>}
+                {reviewError && <p className="text-xs text-rose-700 font-medium">{reviewError}</p>}
                 <button
                   type="submit"
                   disabled={submittingReview}
-                  className="px-4 py-2 text-xs font-semibold text-black bg-white rounded-lg hover:bg-neutral-200 cursor-pointer"
+                  className="px-4 py-2 text-xs font-semibold text-white bg-[#0A0A0B] rounded-xl hover:bg-neutral-800 cursor-pointer"
                 >
                   {user ? 'Post Review' : 'Sign In to Review'}
                 </button>
