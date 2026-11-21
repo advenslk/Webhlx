@@ -15,10 +15,10 @@ interface DivisionBanner3DProps {
 }
 
 /**
- * Seamless Edge-to-Bottom Smooth 3D Division Banner Stage:
- * - Compact hero height starting directly from top edge with soft elliptical masking so zero box edges appear
- * - Multi-stop smooth downward fade melting directly into the #F4F4F5 studio ground
- * - Stationary, rock-solid under mouse and touch
+ * Full-Bleed Top-to-Bottom Smooth Division Banner:
+ * - Image fills the obsidian black hero stage completely edge-to-edge from top-0 with zero text overlapping the artwork
+ * - Smooth multi-stop bottom gradient melts organically from the dark banner straight into the #F4F4F5 light studio ground
+ * - Division label, description, and actions sit cleanly below the banner melt above the 4 aligned 3D spec cards
  */
 export function DivisionBanner3D({
   imageSrc,
@@ -36,29 +36,16 @@ export function DivisionBanner3D({
 
   return (
     <section className="relative bg-[#F4F4F5] pb-12 md:pb-16">
-      {/* Seamless Atmospheric Banner Stage */}
-      <div className="relative overflow-hidden bg-[#09090B] pt-5 pb-20 sm:pb-24 flex flex-col items-center">
-        {/* Top Quiet Division Label */}
-        <motion.div
-          initial={shouldReduceMotion ? false : { opacity: 0, y: -6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="relative z-20 max-w-[1160px] mx-auto w-full px-6 text-center"
-        >
-          <span className="text-xs font-medium tracking-wide text-neutral-400">
-            {divisionLabel}
-          </span>
-        </motion.div>
-
-        {/* Compact Seamless Artwork Stage with Soft Edge Fade */}
+      {/* Edge-to-Edge Top Obsidian Artwork Stage Melting Smoothly Downward into #F4F4F5 */}
+      <div className="relative w-full overflow-hidden bg-[#09090B] h-[250px] sm:h-[320px] md:h-[380px] lg:h-[410px]">
         <motion.div
           initial={shouldReduceMotion ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-          className="relative z-10 mt-2 w-full max-w-[700px] h-[175px] sm:h-[210px] md:h-[235px] px-4 pointer-events-none select-none flex items-center justify-center"
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="relative w-full h-full max-w-[1360px] mx-auto pointer-events-none select-none"
         >
           {imgFailed ? (
-            <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center">
+            <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center">
               <div className="w-11 h-11 rounded-2xl bg-white/10 flex items-center justify-center text-white mb-3">
                 {icon}
               </div>
@@ -73,33 +60,44 @@ export function DivisionBanner3D({
               alt={imageAlt}
               referrerPolicy="no-referrer"
               onError={() => setImgFailed(true)}
-              className="max-w-full max-h-full w-auto h-full object-contain object-center [mask-image:radial-gradient(ellipse_78%_78%_at_50%_48%,black_58%,transparent_100%)]"
+              className="w-full h-full object-cover object-center"
             />
           )}
+
+          {/* Subtle horizontal feather on ultra-wide screens (>1360px) so sides melt cleanly into #09090B */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-[#09090B] to-transparent hidden xl:block"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-[#09090B] to-transparent hidden xl:block"
+          />
         </motion.div>
 
-        {/* Multi-Stop Downward Smooth Melt into #F4F4F5 */}
+        {/* Silky Top-to-Bottom Gradient Melt transitioning directly into #F4F4F5 ground */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-32 sm:h-36 bg-gradient-to-t from-[#F4F4F5] via-[#09090B]/70 via-35% to-transparent"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-32 sm:h-40 bg-gradient-to-t from-[#F4F4F5] via-[#F4F4F5]/75 via-28% to-transparent"
         />
-
-        {/* Compact Description + Action Horizon */}
-        <motion.div
-          initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-          className="relative z-20 max-w-[820px] mx-auto w-full px-6 mt-1 text-center"
-        >
-          <p className="max-w-[58ch] mx-auto text-sm sm:text-base leading-[1.6] text-neutral-300 drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">
-            {description}
-          </p>
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-3.5">{actions}</div>
-        </motion.div>
       </div>
 
-      {/* 4 Aligned High-Depth Sculptural 3D Spec Cards */}
-      <div className="relative z-20 max-w-[1160px] mx-auto px-6 -mt-12 sm:-mt-14">
+      {/* Division Label, Description & Action Buttons positioned cleanly BELOW the banner */}
+      <motion.div
+        initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
+        className="relative z-20 max-w-[860px] mx-auto px-6 -mt-4 sm:-mt-6 text-center"
+      >
+        <div className="text-xs font-semibold text-neutral-500">{divisionLabel}</div>
+        <p className="mt-3 max-w-[62ch] mx-auto text-sm sm:text-base leading-[1.65] text-neutral-700">
+          {description}
+        </p>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3.5">{actions}</div>
+      </motion.div>
+
+      {/* 4 Aligned Sculptural 3D Spec Cards */}
+      <div className="relative z-20 max-w-[1160px] mx-auto px-6 mt-10 sm:mt-12">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {specs.map((spec, idx) => (
             <Surface3D key={spec.label} delay={idx * 0.05}>

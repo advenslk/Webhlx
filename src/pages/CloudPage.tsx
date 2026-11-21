@@ -202,14 +202,14 @@ export function CloudPage({ onNavigate }: CloudPageProps) {
           <>
             <a
               href="#cloud-plans"
-              className="px-6 py-3 text-sm font-semibold text-[#0A0A0B] bg-white rounded-xl hover:bg-neutral-100 transition-colors shadow-[0_14px_34px_rgba(0,0,0,0.35)] cursor-pointer"
+              className="px-6 py-3 text-sm font-semibold text-white bg-[#0A0A0B] rounded-xl hover:bg-neutral-800 transition-colors shadow-[0_10px_24px_rgba(10,10,11,0.18)] cursor-pointer"
             >
               Browse Hosting Plans
             </a>
             <button
               type="button"
               onClick={() => onNavigate(user ? 'dashboard' : 'auth')}
-              className="inline-flex items-center gap-1.5 px-6 py-3 text-sm font-semibold text-white bg-white/15 backdrop-blur-md border border-white/25 rounded-xl hover:bg-white/25 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-6 py-3 text-sm font-semibold text-[#0A0A0B] bg-white border border-black/15 rounded-xl hover:border-black/35 transition-colors shadow-sm cursor-pointer"
             >
               <span>{user ? 'Open Server Console' : 'Sign In to Provision'}</span>
               <ArrowRight className="w-4 h-4" />
