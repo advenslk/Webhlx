@@ -126,23 +126,27 @@ export function HomePage({ onNavigate }: HomePageProps) {
             </button>
           </motion.div>
 
-          {/* Interactive 3D Matte-Black Studded Sculpture Centerpiece + Floating Callout Tags */}
-          <div className="relative w-full max-w-[720px] h-[340px] sm:h-[420px] md:h-[460px] mx-auto mt-2 -mb-14 sm:-mb-16">
+          {/* 3D Animated Official HelzerX Emblem Centerpiece + Floating Callout Tags */}
+          <div className="relative w-full max-w-[740px] h-[300px] sm:h-[360px] md:h-[400px] mx-auto mt-3 -mb-10 sm:-mb-12">
             <Suspense
               fallback={
                 <div className="w-full h-full flex items-center justify-center">
-                  <div className="w-40 h-40 rounded-full bg-neutral-900/10 animate-pulse" />
+                  <img
+                    src="/assets/aistudio/IMG_20261011_201132-removebg-preview_9b5f47c8.png"
+                    alt=""
+                    className="w-[220px] sm:w-[270px] h-auto object-contain opacity-90"
+                  />
                 </div>
               }
             >
               <ThreeCoreBackdrop />
             </Suspense>
 
-            {/* 4 Spatial Floating White Callout Tags Around Sculpture */}
+            {/* 4 Spatial Floating White Callout Tags Around 3D Logo */}
             <button
               type="button"
               onClick={() => onNavigate('cloud', 'cloud')}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white border border-black/[0.08] shadow-[0_14px_30px_rgba(0,0,0,0.1)] text-[11px] font-semibold text-[#0A0A0B] absolute top-14 left-6 md:left-14 hover:scale-105 transition-transform cursor-pointer"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white border border-black/[0.08] shadow-[0_14px_30px_rgba(0,0,0,0.1)] text-[11px] font-semibold text-[#0A0A0B] absolute top-10 left-4 md:left-12 hover:bg-neutral-50 transition-colors cursor-pointer"
             >
               <span>HelzerX Cloud</span>
             </button>
@@ -150,7 +154,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
             <button
               type="button"
               onClick={() => onNavigate('studio', 'studio')}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white border border-black/[0.08] shadow-[0_14px_30px_rgba(0,0,0,0.1)] text-[11px] font-semibold text-[#0A0A0B] absolute top-24 right-4 md:right-12 hover:scale-105 transition-transform cursor-pointer"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white border border-black/[0.08] shadow-[0_14px_30px_rgba(0,0,0,0.1)] text-[11px] font-semibold text-[#0A0A0B] absolute top-16 right-4 md:right-12 hover:bg-neutral-50 transition-colors cursor-pointer"
             >
               <span>HelzerX Studio</span>
             </button>
@@ -158,7 +162,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
             <button
               type="button"
               onClick={() => onNavigate('shop', 'shop')}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white border border-black/[0.08] shadow-[0_14px_30px_rgba(0,0,0,0.1)] text-[11px] font-semibold text-[#0A0A0B] absolute bottom-28 left-2 md:left-10 hover:scale-105 transition-transform cursor-pointer"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white border border-black/[0.08] shadow-[0_14px_30px_rgba(0,0,0,0.1)] text-[11px] font-semibold text-[#0A0A0B] absolute bottom-24 left-2 md:left-10 hover:bg-neutral-50 transition-colors cursor-pointer"
             >
               <span>Hardware &amp; Shop</span>
             </button>
@@ -166,7 +170,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
             <button
               type="button"
               onClick={() => onNavigate('launch')}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white border border-black/[0.08] shadow-[0_14px_30px_rgba(0,0,0,0.1)] text-[11px] font-semibold text-[#0A0A0B] absolute bottom-24 right-4 md:right-8 hover:scale-105 transition-transform cursor-pointer"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white border border-black/[0.08] shadow-[0_14px_30px_rgba(0,0,0,0.1)] text-[11px] font-semibold text-[#0A0A0B] absolute bottom-20 right-4 md:right-8 hover:bg-neutral-50 transition-colors cursor-pointer"
             >
               <span>Launch 01.01.2027</span>
             </button>

@@ -63,15 +63,20 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
       className="sticky top-0 z-50 w-full bg-[#F4F4F5]/90 backdrop-blur-xl border-b border-black/[0.08]"
     >
       <div className="max-w-[1380px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-        {/* Brand Wordmark */}
+        {/* Brand Lockup */}
         <a
           href={ROUTE_PATHS.home}
           onClick={(e) => {
             e.preventDefault();
             go('home');
           }}
-          className="flex items-center gap-2 text-lg font-extrabold tracking-tight text-[#0A0A0B] whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black rounded-md px-1"
+          className="flex items-center gap-2.5 text-lg font-extrabold tracking-tight text-[#0A0A0B] whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black rounded-md px-1"
         >
+          <img
+            src="/assets/aistudio/IMG_20261011_201132-removebg-preview_9b5f47c8.png"
+            alt="HelzerX Technologies"
+            className="h-6 w-auto object-contain shrink-0"
+          />
           <span>helzerx.</span>
         </a>
 

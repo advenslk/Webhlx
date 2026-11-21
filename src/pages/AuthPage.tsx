@@ -127,6 +127,11 @@ export function AuthPage({ onNavigate }: AuthPageProps) {
     <div className="bg-[#F4F4F5] text-[#0A0A0B] helzerx-studio-hero py-16 md:py-24 px-6 min-h-[75vh]">
       <div className="max-w-[520px] mx-auto">
         <div className="text-center mb-8">
+          <img
+            src="/assets/aistudio/IMG_20261011_201132-removebg-preview_9b5f47c8.png"
+            alt="HelzerX Technologies"
+            className="h-9 w-auto object-contain mx-auto mb-3"
+          />
           <div className="text-xs font-semibold text-neutral-500">HelzerX Unified Identity</div>
           <h1 className="mt-2 text-3xl sm:text-4xl font-extrabold tracking-tight text-[#0A0A0B]">
             {mode === 'login' && 'Sign in to HelzerX'}

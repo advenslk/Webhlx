@@ -46,8 +46,13 @@ export function Footer({ onNavigate }: FooterProps) {
             <a
               href={ROUTE_PATHS.home}
               onClick={(e) => handleLink(e, 'home')}
-              className="inline-flex items-center gap-2 text-lg font-extrabold tracking-tight text-[#0A0A0B]"
+              className="inline-flex items-center gap-2.5 text-lg font-extrabold tracking-tight text-[#0A0A0B]"
             >
+              <img
+                src="/assets/aistudio/IMG_20261011_201132-removebg-preview_9b5f47c8.png"
+                alt="HelzerX Technologies"
+                className="h-6 w-auto object-contain shrink-0"
+              />
               <span>helzerx.</span>
             </a>
             <p className="text-xs leading-relaxed text-neutral-600 max-w-xs">
