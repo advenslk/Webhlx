@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import { apiRequest, setAuthToken } from '../lib/api';
+import { apiRequest, getAuthToken, setAuthToken } from '../lib/api';
 
 export type UserRole = 'super_admin' | 'admin' | 'staff' | 'partner' | 'customer';
 
@@ -87,6 +87,7 @@ export interface CartItem {
 
 interface AppContextValue {
   user: AuthUser | null;
+  sessionReady: boolean;
   setSession: (token: string | null, user: AuthUser | null) => void;
   refreshUser: () => Promise<void>;
   logout: () => void;
@@ -103,11 +104,34 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
+const CART_KEY = 'helzerx.cart';
+const WISHLIST_KEY = 'helzerx.wishlist';
+
+function readStored<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function persist(key: string, value: unknown): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Ignore storage failures — state still works for this session.
+  }
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [siteData, setSiteData] = useState<PublicSiteData | null>(null);
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [wishlist, setWishlist] = useState<string[]>([]);
+  const [cart, setCart] = useState<CartItem[]>(() => readStored<CartItem[]>(CART_KEY, []));
+  const [wishlist, setWishlist] = useState<string[]>(() => readStored<string[]>(WISHLIST_KEY, []));
+  const [sessionReady, setSessionReady] = useState(false);
 
   const refreshSiteData = useCallback(async () => {
     try {
@@ -134,8 +158,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch {
       setAuthToken(null);
       setUser(null);
+    } finally {
+      setSessionReady(true);
     }
   }, []);
+
+  // Restore a saved session on load so auth survives reloads and new tabs.
+  useEffect(() => {
+    if (getAuthToken()) {
+      void refreshUser();
+    } else {
+      setSessionReady(true);
+    }
+  }, [refreshUser]);
+
+  useEffect(() => persist(CART_KEY, cart), [cart]);
+  useEffect(() => persist(WISHLIST_KEY, wishlist), [wishlist]);
 
   const logout = useCallback(() => {
     setAuthToken(null);
@@ -176,6 +214,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider
       value={{
         user,
+        sessionReady,
         setSession,
         refreshUser,
         logout,

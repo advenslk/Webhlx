@@ -1,11 +1,17 @@
 import { ArrowRight, ChevronDown, Cloud, Cpu, Globe, Layers, Lock, ShieldCheck, ShoppingBag, Sparkles, Zap } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
-import { useState } from 'react';
-import { ThreeCoreBackdrop } from '../components/ThreeCoreBackdrop';
+import { lazy, Suspense, useState } from 'react';
+
+// Load the WebGL scene as a separate chunk so the first paint stays instant.
+const ThreeCoreBackdrop = lazy(() =>
+  import('../components/ThreeCoreBackdrop').then((module) => ({
+    default: module.ThreeCoreBackdrop,
+  })),
+);
 import { TrustedLogos } from '../components/TrustedLogos';
 import { WorkspaceShowcase } from '../components/WorkspaceShowcase';
 import { useAppContext } from '../context/AppContext';
-import { CASE_STUDIES, DivisionId } from '../data/helzerxData';
+import { DivisionId } from '../data/helzerxData';
 import { PageRoute } from '../types/navigation';
 
 interface HomePageProps {
@@ -23,7 +29,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
   const heroDesc =
     general?.heroDescription ||
     'Powering the next generation of digital experiences through innovative technology, reliable infrastructure, and creative solutions.';
-  const totalPreorders = siteData?.launch?.totalPreorders ?? 47;
+  const totalPreorders = siteData?.launch?.totalPreorders ?? 0;
   const earlyAccessQualified = siteData?.launch?.earlyAccessQualified ?? 0;
   const earlyAccessLimit = siteData?.launch?.earlyAccessLimit ?? 50;
   const announcements = siteData?.announcements ?? [];
@@ -39,7 +45,9 @@ export function HomePage({ onNavigate }: HomePageProps) {
     <div className="bg-black text-white">
       {/* 1-3. HERO SECTION + ANIMATED BRANDING + INTERACTIVE 3D BACKGROUND */}
       <section className="relative overflow-hidden helzerx-hero-aura pt-24 pb-40 md:pt-32 md:pb-52">
-        <ThreeCoreBackdrop />
+        <Suspense fallback={null}>
+          <ThreeCoreBackdrop />
+        </Suspense>
 
         <div
           aria-hidden="true"
@@ -129,7 +137,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
           </div>
 
           <div className="mt-14 grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-            <article className="flex flex-col justify-between rounded-2xl bg-[#080910] border border-white/[0.1] p-8 hover:border-violet-400/40 transition-colors">
+            <article className="helzerx-tilt-card flex flex-col justify-between rounded-2xl bg-[#080910] border border-white/[0.1] p-8 hover:border-violet-400/40">
               <div>
                 <div className="w-11 h-11 rounded-xl bg-white flex items-center justify-center">
                   <Cloud className="w-5 h-5 text-black" />
@@ -156,7 +164,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
               </div>
             </article>
 
-            <article className="flex flex-col justify-between rounded-2xl bg-[#080910] border border-white/[0.1] p-8 hover:border-blue-400/40 transition-colors">
+            <article className="helzerx-tilt-card flex flex-col justify-between rounded-2xl bg-[#080910] border border-white/[0.1] p-8 hover:border-blue-400/40">
               <div>
                 <div className="w-11 h-11 rounded-xl bg-white flex items-center justify-center">
                   <Layers className="w-5 h-5 text-black" />
@@ -183,7 +191,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
               </div>
             </article>
 
-            <article className="flex flex-col justify-between rounded-2xl bg-[#080910] border border-white/[0.1] p-8 hover:border-cyan-400/40 transition-colors">
+            <article className="helzerx-tilt-card flex flex-col justify-between rounded-2xl bg-[#080910] border border-white/[0.1] p-8 hover:border-cyan-400/40">
               <div>
                 <div className="w-11 h-11 rounded-xl bg-white flex items-center justify-center">
                   <ShoppingBag className="w-5 h-5 text-black" />
@@ -246,7 +254,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
             {featuredProducts.slice(0, 4).map((product) => (
               <article
                 key={product.id}
-                className="flex flex-col justify-between rounded-2xl bg-[#080910] border border-white/[0.1] p-6"
+                className="helzerx-tilt-card flex flex-col justify-between rounded-2xl bg-[#080910] border border-white/[0.1] p-6"
               >
                 <div>
                   <div className="flex items-center justify-between text-xs text-neutral-400">
@@ -282,7 +290,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
         </div>
       </section>
 
-      {/* 10 & 11. WHY CHOOSE HELZERX & REAL PLATFORM STATISTICS */}
+      {/* 10 & 11. WHY CHOOSE HELZERX & PLATFORM AT A GLANCE */}
       <section className="bg-black py-20 md:py-24 border-t border-white/[0.06]">
         <div className="max-w-[1160px] mx-auto px-6">
           <div className="max-w-[660px] mx-auto text-center">
@@ -305,7 +313,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
                 Verified Launch Pre-Orders
               </div>
               <p className="mt-2 text-xs text-neutral-500">
-                Tracked from our 47 initial commitments plus ongoing verified database orders.
+                Counted from live launch registrations stored in the platform database.
               </p>
             </div>
 
@@ -393,34 +401,39 @@ export function HomePage({ onNavigate }: HomePageProps) {
         </div>
       </section>
 
-      {/* 12. CUSTOMER TESTIMONIALS & PROOF */}
+      {/* 12. WHY BUILD WITH HELZERX */}
       <section className="bg-black py-20 md:py-24 border-t border-white/[0.06]">
         <div className="max-w-[1160px] mx-auto px-6">
           <div className="max-w-[640px] mx-auto text-center">
             <h2 className="text-[clamp(1.85rem,3.5vw,2.6rem)] font-bold tracking-tight text-white">
-              Trusted by engineering and product teams
+              One platform, no handoffs
             </h2>
+            <p className="mt-3 text-sm md:text-base text-neutral-400">
+              Infrastructure, hardware, and product engineering under a single authenticated account.
+            </p>
           </div>
 
-          <div className="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {CASE_STUDIES.map((study) => (
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                title: 'One identity everywhere',
+                body: 'The same account opens the Cloud console, Studio workspace, Shop catalog, and Support center.',
+              },
+              {
+                title: 'Credentials stay server-side',
+                body: 'Panel and payment keys are held in environment variables and proxied through the API — never the browser.',
+              },
+              {
+                title: 'Built to be extended',
+                body: 'Every action in the platform is backed by a documented API and a real database record.',
+              },
+            ].map((item) => (
               <article
-                key={study.id}
-                className="flex flex-col justify-between rounded-2xl bg-[#080910] border border-white/[0.1] p-8"
+                key={item.title}
+                className="rounded-2xl bg-[#080910] border border-white/[0.1] p-8 hover:border-violet-400/35 transition-colors duration-200"
               >
-                <div>
-                  <div className="text-xs font-medium text-violet-300">
-                    {study.division} · {study.client}
-                  </div>
-                  <div className="mt-3 text-xl font-bold text-white tabular-nums">{study.metric}</div>
-                  <p className="mt-3 text-sm text-neutral-400 leading-relaxed">{study.summary}</p>
-                </div>
-                <blockquote className="mt-6 pt-5 border-t border-white/[0.08]">
-                  <p className="text-sm text-neutral-200 leading-relaxed">“{study.quote}”</p>
-                  <footer className="mt-3 text-xs text-neutral-400">
-                    <span className="font-semibold text-white">{study.author}</span> · {study.role}
-                  </footer>
-                </blockquote>
+                <h3 className="text-base font-bold text-white">{item.title}</h3>
+                <p className="mt-3 text-sm text-neutral-400 leading-relaxed">{item.body}</p>
               </article>
             ))}
           </div>

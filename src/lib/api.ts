@@ -1,7 +1,28 @@
-let memoryAuthToken: string | null = null;
+const TOKEN_KEY = 'helzerx.session';
+
+function readStoredToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+let memoryAuthToken: string | null = readStoredToken();
 
 export function setAuthToken(token: string | null): void {
   memoryAuthToken = token;
+  if (typeof window === 'undefined') return;
+  try {
+    if (token) {
+      window.localStorage.setItem(TOKEN_KEY, token);
+    } else {
+      window.localStorage.removeItem(TOKEN_KEY);
+    }
+  } catch {
+    // Storage can be disabled (private mode) — the in-memory session still works.
+  }
 }
 
 export function getAuthToken(): string | null {

@@ -87,7 +87,7 @@ export function PricingPage({ onNavigate }: PricingPageProps) {
           </h1>
           <p className="mt-6 max-w-[58ch] mx-auto text-base md:text-lg leading-[1.6] text-neutral-200/90">
             Clear resource specifications with zero hidden bandwidth fees. Apply coupon{' '}
-            <span className="font-mono text-cyan-300">HELZERX2027</span> in HelzerX Shop for 20%
+            <span className="font-mono text-cyan-300">HELZERX2027</span> in HelzerX Shop for 15%
             launch savings.
           </p>
 

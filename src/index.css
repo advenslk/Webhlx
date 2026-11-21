@@ -11,16 +11,65 @@
     background-color: #000000;
     color: #ffffff;
     color-scheme: dark;
+    scroll-behavior: smooth;
   }
 
   body {
     background-color: #000000;
     color: #ffffff;
     overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
-  h1, h2, h3 {
+  h1,
+  h2,
+  h3 {
     text-wrap: balance;
+  }
+
+  /* Consistent, calm interaction feedback across the whole app. */
+  button,
+  a,
+  input,
+  textarea,
+  select {
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+    transition-duration: 180ms;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  button:active:not(:disabled) {
+    transform: scale(0.985);
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(167 139 250 / 0.85);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: rgb(139 92 246 / 0.35);
+    color: #f5f3ff;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #050508;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgb(139 92 246 / 0.35);
+    border: 2px solid #050508;
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(139 92 246 / 0.6);
   }
 }
 
@@ -39,10 +88,12 @@
     radial-gradient(90% 60% at 50% 85%, rgba(109, 40, 217, 0.55) 0%, rgba(76, 29, 149, 0.32) 42%, rgba(0, 0, 0, 0) 78%);
 }
 
+/* Gentle 3D perspective used by the product showcase and feature panels. */
 .helzerx-perspective-frame {
   transform: perspective(1400px) rotateX(7deg);
   transform-origin: center top;
-  transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 480ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
 }
 
 .helzerx-perspective-frame:hover,
@@ -50,11 +101,56 @@
   transform: perspective(1400px) rotateX(2deg);
 }
 
+.helzerx-tilt-card {
+  transform: perspective(900px) rotateX(0deg) rotateY(0deg) translateZ(0);
+  transform-style: preserve-3d;
+  transition:
+    transform 480ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 240ms ease,
+    box-shadow 480ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.helzerx-tilt-card:hover {
+  transform: perspective(900px) rotateX(3deg) rotateY(-3deg) translateZ(6px);
+  box-shadow: 0 26px 70px -30px rgba(124, 58, 237, 0.55);
+}
+
+.helzerx-shimmer {
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0.03) 20%,
+    rgba(167, 139, 250, 0.14) 42%,
+    rgba(34, 211, 238, 0.09) 50%,
+    rgba(255, 255, 255, 0.03) 78%
+  );
+  background-size: 220% 100%;
+  animation: helzerx-shimmer 1.6s linear infinite;
+}
+
+@keyframes helzerx-shimmer {
+  to {
+    background-position: -220% 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
   .helzerx-perspective-frame,
   .helzerx-perspective-frame:hover,
-  .helzerx-perspective-frame:focus-within {
+  .helzerx-perspective-frame:focus-within,
+  .helzerx-tilt-card,
+  .helzerx-tilt-card:hover {
     transform: none;
-    transition: none;
   }
 }

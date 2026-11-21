@@ -9,7 +9,7 @@ interface NavbarProps {
 }
 
 export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
-  const { user, isAdminRole, logout, cart } = useAppContext();
+  const { user, sessionReady, isAdminRole, logout, cart } = useAppContext();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<'products' | 'community' | null>(null);
   const navRef = useRef<HTMLElement>(null);
@@ -46,7 +46,7 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
     { label: 'Community', desc: 'Builders, creators & announcements', route: 'community' },
     { label: 'Blog', desc: 'Engineering deep-dives & release notes', route: 'blog' },
     { label: 'Careers', desc: 'Open roles at HelzerX Technologies', route: 'careers' },
-    { label: 'Launch 01.01.2027', desc: '47+ pre-orders & first-50 8GB offer', route: 'launch' },
+    { label: 'Launch 01.01.2027', desc: 'Early access & first-50 8GB offer', route: 'launch' },
     { label: 'Support Center', desc: 'Docs, knowledge base & tickets', route: 'support' },
   ];
 
@@ -297,7 +297,7 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
                 <LogOut className="w-4 h-4" />
               </button>
             </div>
-          ) : (
+          ) : sessionReady ? (
             <div className="hidden md:flex items-center gap-2.5">
               <button
                 type="button"
@@ -314,6 +314,11 @@ export function Navbar({ currentRoute, onNavigate }: NavbarProps) {
                 Get Started
               </button>
             </div>
+          ) : (
+            <div
+              aria-hidden="true"
+              className="hidden md:block h-8 w-32 animate-pulse rounded-lg bg-white/[0.06]"
+            />
           )}
 
           {/* Mobile / Tablet Menu Button */}

@@ -1,5 +1,5 @@
 import { ArrowRight, Globe, Layers, Lock, ShieldCheck } from 'lucide-react';
-import { CASE_STUDIES } from '../data/helzerxData';
+import { DIVISIONS } from '../data/helzerxData';
 import { PageRoute } from '../types/navigation';
 
 interface AboutPageProps {
@@ -109,44 +109,48 @@ export function AboutPage({ onNavigate }: AboutPageProps) {
         </div>
       </section>
 
-      {/* Case Studies */}
+      {/* What we build */}
       <section className="bg-black py-20 md:py-24">
         <div className="max-w-[1160px] mx-auto px-6">
           <div className="max-w-[640px] mx-auto text-center">
             <h2 className="text-[clamp(1.75rem,3.5vw,2.5rem)] font-bold tracking-tight text-white">
-              Verified Client Outcomes
+              Three divisions, one account
             </h2>
             <p className="mt-3 text-sm md:text-base text-neutral-400">
-              Measurable delivery benchmarks across infrastructure, workstation hardware, and Studio systems.
+              Every HelzerX product is connected by the same identity, billing, and support layer.
             </p>
           </div>
 
           <div className="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-            {CASE_STUDIES.map((study) => (
+            {DIVISIONS.map((division) => (
               <article
-                key={study.id}
-                className="flex flex-col justify-between rounded-2xl bg-[#08080C] border border-white/[0.1] p-8"
+                key={division.id}
+                className="flex flex-col justify-between rounded-2xl bg-[#08080C] border border-white/[0.1] p-8 hover:border-violet-400/35 transition-colors"
               >
                 <div>
-                  <div className="flex items-center gap-2 text-xs font-medium text-neutral-400">
-                    <span className="text-violet-300">{study.division}</span>
-                    <span aria-hidden="true" className="text-neutral-600">·</span>
-                    <span>{study.client}</span>
+                  <div className="text-xs font-mono text-violet-300 uppercase">
+                    {division.shortName}
                   </div>
-                  <p className="mt-4 text-2xl font-bold tracking-tight text-white tabular-nums">
-                    {study.metric}
+                  <h3 className="mt-4 text-lg font-bold text-white leading-snug">
+                    {division.headline}
+                  </h3>
+                  <p className="mt-3 text-sm leading-[1.6] text-neutral-400">
+                    {division.description}
                   </p>
-                  <p className="mt-3 text-sm leading-[1.6] text-neutral-400">{study.summary}</p>
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {division.highlights.map((highlight) => (
+                      <span
+                        key={highlight}
+                        className="rounded-full border border-white/[0.12] bg-white/[0.04] px-2.5 py-1 text-[11px] text-neutral-300"
+                      >
+                        {highlight}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-
-                <blockquote className="mt-7 pt-5 border-t border-white/[0.08]">
-                  <p className="text-sm leading-[1.6] text-neutral-200">“{study.quote}”</p>
-                  <footer className="mt-3 text-xs text-neutral-400">
-                    <span className="font-semibold text-neutral-200">{study.author}</span>
-                    <span aria-hidden="true" className="mx-1.5 text-neutral-600">·</span>
-                    <span>{study.role}</span>
-                  </footer>
-                </blockquote>
+                <div className="mt-7 pt-5 border-t border-white/[0.08] font-mono text-xs text-cyan-300">
+                  {division.metricLabel}
+                </div>
               </article>
             ))}
           </div>

@@ -9,7 +9,7 @@ interface CommunityPageProps {
 export function CommunityPage({ onNavigate }: CommunityPageProps) {
   const { siteData } = useAppContext();
   const announcements = siteData?.announcements ?? [];
-  const totalPreorders = siteData?.launch?.totalPreorders ?? 47;
+  const totalPreorders = siteData?.launch?.totalPreorders ?? 0;
   const qualified = siteData?.launch?.earlyAccessQualified ?? 0;
 
   return (

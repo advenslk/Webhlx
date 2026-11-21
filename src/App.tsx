@@ -3,37 +3,60 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { lazy, Suspense, useEffect, useState, type ComponentType } from 'react';
 import { Footer } from './components/Footer';
 import { Navbar } from './components/Navbar';
 import { AppProvider } from './context/AppContext';
 import { DivisionId } from './data/helzerxData';
-import { AboutPage } from './pages/AboutPage';
-import { AdminPage } from './pages/AdminPage';
-import { AuthPage } from './pages/AuthPage';
-import { BlogPage } from './pages/BlogPage';
-import { CareersPage } from './pages/CareersPage';
-import { CloudPage } from './pages/CloudPage';
-import { CommunityPage } from './pages/CommunityPage';
-import { ContactPage } from './pages/ContactPage';
-import { DashboardPage } from './pages/DashboardPage';
 import { HomePage } from './pages/HomePage';
-import { Launch2027Page } from './pages/Launch2027Page';
-import { LegalPage } from './pages/LegalPage';
-import { PartnersPage } from './pages/PartnersPage';
-import { PricingPage } from './pages/PricingPage';
-import { ProductsPage } from './pages/ProductsPage';
-import { ShopPage } from './pages/ShopPage';
-import { SolutionsPage } from './pages/SolutionsPage';
-import { StudioPage } from './pages/StudioPage';
-import { SupportPage } from './pages/SupportPage';
 import { PageRoute, ROUTE_PATHS, parseRouteFromHash } from './types/navigation';
+
+// Secondary pages are loaded on demand to keep the first paint fast.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const lazyPage = <T extends ComponentType<any>>(loader: () => Promise<{ default: T }>) =>
+  lazy(loader);
+const AboutPage = lazyPage(() => import('./pages/AboutPage').then((m) => ({ default: m.AboutPage })));
+const AdminPage = lazyPage(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })));
+const AuthPage = lazyPage(() => import('./pages/AuthPage').then((m) => ({ default: m.AuthPage })));
+const BlogPage = lazyPage(() => import('./pages/BlogPage').then((m) => ({ default: m.BlogPage })));
+const CareersPage = lazyPage(() => import('./pages/CareersPage').then((m) => ({ default: m.CareersPage })));
+const CloudPage = lazyPage(() => import('./pages/CloudPage').then((m) => ({ default: m.CloudPage })));
+const CommunityPage = lazyPage(() => import('./pages/CommunityPage').then((m) => ({ default: m.CommunityPage })));
+const ContactPage = lazyPage(() => import('./pages/ContactPage').then((m) => ({ default: m.ContactPage })));
+const DashboardPage = lazyPage(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
+const Launch2027Page = lazyPage(() => import('./pages/Launch2027Page').then((m) => ({ default: m.Launch2027Page })));
+const LegalPage = lazyPage(() => import('./pages/LegalPage').then((m) => ({ default: m.LegalPage })));
+const PartnersPage = lazyPage(() => import('./pages/PartnersPage').then((m) => ({ default: m.PartnersPage })));
+const PricingPage = lazyPage(() => import('./pages/PricingPage').then((m) => ({ default: m.PricingPage })));
+const ProductsPage = lazyPage(() => import('./pages/ProductsPage').then((m) => ({ default: m.ProductsPage })));
+const ShopPage = lazyPage(() => import('./pages/ShopPage').then((m) => ({ default: m.ShopPage })));
+const SolutionsPage = lazyPage(() => import('./pages/SolutionsPage').then((m) => ({ default: m.SolutionsPage })));
+const StudioPage = lazyPage(() => import('./pages/StudioPage').then((m) => ({ default: m.StudioPage })));
+const SupportPage = lazyPage(() => import('./pages/SupportPage').then((m) => ({ default: m.SupportPage })));
+
+function PageFallback() {
+  return (
+    <div className="min-h-[60vh] px-6 py-24">
+      <div className="mx-auto max-w-[1120px] space-y-6">
+        <div className="helzerx-shimmer h-10 w-2/3 max-w-md rounded-lg" />
+        <div className="helzerx-shimmer h-4 w-1/2 max-w-lg rounded" />
+        <div className="grid gap-5 pt-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="helzerx-shimmer h-40 rounded-2xl" />
+          <div className="helzerx-shimmer h-40 rounded-2xl" />
+          <div className="helzerx-shimmer h-40 rounded-2xl" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function AppShell() {
   const [route, setRoute] = useState<PageRoute>(() =>
     typeof window !== 'undefined' ? parseRouteFromHash(window.location.hash) : 'home',
   );
   const [contactDivision, setContactDivision] = useState<DivisionId>('cloud');
+  const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
     const onHashChange = () => {
@@ -108,7 +131,19 @@ function AppShell() {
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
       <Navbar currentRoute={route} onNavigate={(r) => navigateTo(r)} />
-      <main className="flex-1">{renderPage()}</main>
+      <main className="flex-1">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={route}
+            initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: -8 }}
+            transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <Suspense fallback={<PageFallback />}>{renderPage()}</Suspense>
+          </motion.div>
+        </AnimatePresence>
+      </main>
       <Footer onNavigate={(r) => navigateTo(r)} />
     </div>
   );

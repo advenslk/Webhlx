@@ -1,131 +1,236 @@
 import { useEffect, useRef } from 'react';
+import * as THREE from 'three';
 
+/**
+ * Real WebGL backdrop rendered with Three.js.
+ *
+ * - Iridescent torus core, orbital rings and a drifting particle field
+ * - Mouse parallax with eased interpolation (no jitter)
+ * - Pauses when off-screen or when the tab is hidden
+ * - Honours prefers-reduced-motion with a single static frame
+ * - Falls back silently to the CSS aura if WebGL is unavailable
+ */
 export function ThreeCoreBackdrop() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const host = hostRef.current;
+    if (!host) return;
 
-    const prefersReduced =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    let width = (canvas.width = canvas.offsetWidth * window.devicePixelRatio);
-    let height = (canvas.height = canvas.offsetHeight * window.devicePixelRatio);
-    let mouseX = 0;
-    let mouseY = 0;
-    let rafId = 0;
-
-    const handleResize = () => {
-      if (!canvas) return;
-      width = canvas.width = canvas.offsetWidth * window.devicePixelRatio;
-      height = canvas.height = canvas.offsetHeight * window.devicePixelRatio;
-    };
-
-    const handlePointer = (e: MouseEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      mouseX = ((e.clientX - rect.left) / Math.max(1, rect.width) - 0.5) * 0.5;
-      mouseY = ((e.clientY - rect.top) / Math.max(1, rect.height) - 0.5) * 0.5;
-    };
-
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('mousemove', handlePointer, { passive: true });
-
-    // Generate spherical 3D lattice points
-    const points: { x: number; y: number; z: number }[] = [];
-    const latSteps = 8;
-    const lonSteps = 14;
-    for (let i = 1; i < latSteps; i++) {
-      const phi = (Math.PI * i) / latSteps;
-      for (let j = 0; j < lonSteps; j++) {
-        const theta = (2 * Math.PI * j) / lonSteps;
-        points.push({
-          x: Math.sin(phi) * Math.cos(theta),
-          y: Math.cos(phi),
-          z: Math.sin(phi) * Math.sin(theta),
-        });
-      }
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        alpha: true,
+        antialias: true,
+        powerPreference: 'high-performance',
+      });
+    } catch {
+      // WebGL is not available — the CSS hero aura remains as the fallback.
+      return;
     }
 
-    let angle = 0;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+    renderer.setClearColor(0x000000, 0);
+    renderer.domElement.style.width = '100%';
+    renderer.domElement.style.height = '100%';
+    renderer.domElement.style.display = 'block';
+    host.appendChild(renderer.domElement);
 
-    const renderFrame = () => {
-      if (!ctx) return;
-      ctx.clearRect(0, 0, width, height);
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+    camera.position.set(0, 0, 6.4);
 
-      const cx = width * 0.5;
-      const cy = height * 0.45;
-      const radius = Math.min(width, height) * 0.34;
-      const rotY = angle + mouseX * 0.8;
-      const rotX = 0.35 + mouseY * 0.6;
+    const world = new THREE.Group();
+    world.position.y = 0.15;
+    scene.add(world);
 
-      const cosY = Math.cos(rotY);
-      const sinY = Math.sin(rotY);
-      const cosX = Math.cos(rotX);
-      const sinX = Math.sin(rotX);
-
-      const projected = points.map((p) => {
-        const x1 = p.x * cosY - p.z * sinY;
-        const z1 = p.z * cosY + p.x * sinY;
-        const y2 = p.y * cosX - z1 * sinX;
-        const z2 = z1 * cosX + p.y * sinX;
-        const scale = 2.4 / (2.4 - z2);
-        return {
-          sx: cx + x1 * radius * scale,
-          sy: cy + y2 * radius * scale,
-          depth: z2,
-        };
-      });
-
-      // Draw orbital connections
-      ctx.lineWidth = Math.max(1, window.devicePixelRatio * 0.75);
-      for (let i = 0; i < projected.length; i++) {
-        const a = projected[i];
-        const nextIdx = (i + 1) % projected.length;
-        const b = projected[nextIdx];
-        const dist = Math.hypot(a.sx - b.sx, a.sy - b.sy);
-        if (dist < radius * 0.65) {
-          const alpha = Math.max(0.05, Math.min(0.26, (a.depth + 1.2) * 0.12));
-          ctx.strokeStyle = `rgba(139, 92, 246, ${alpha})`;
-          ctx.beginPath();
-          ctx.moveTo(a.sx, a.sy);
-          ctx.lineTo(b.sx, b.sy);
-          ctx.stroke();
-        }
-      }
-
-      // Draw luminous nodes
-      for (const pt of projected) {
-        const alpha = Math.max(0.15, Math.min(0.85, (pt.depth + 1.1) * 0.38));
-        ctx.fillStyle = pt.depth > 0.2 ? `rgba(34, 211, 238, ${alpha})` : `rgba(167, 139, 250, ${alpha})`;
-        ctx.beginPath();
-        ctx.arc(pt.sx, pt.sy, Math.max(1.4, window.devicePixelRatio * 1.5), 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      if (!prefersReduced) {
-        angle += 0.0024;
-        rafId = window.requestAnimationFrame(renderFrame);
-      }
+    const disposables: { dispose: () => void }[] = [];
+    const track = <T extends { dispose: () => void }>(item: T): T => {
+      disposables.push(item);
+      return item;
     };
 
-    renderFrame();
+    // --- Core: faceted violet torus knot with a fine wireframe shell ---------
+    const coreGeometry = track(new THREE.TorusKnotGeometry(1.18, 0.34, 180, 22, 2, 3));
+    const coreMaterial = track(
+      new THREE.MeshStandardMaterial({
+        color: 0x5b21b6,
+        emissive: 0x180a38,
+        metalness: 0.72,
+        roughness: 0.2,
+        transparent: true,
+        opacity: 0.94,
+      }),
+    );
+    const core = new THREE.Mesh(coreGeometry, coreMaterial);
+    world.add(core);
+
+    const wireMaterial = track(
+      new THREE.MeshBasicMaterial({
+        color: 0xc4b5fd,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.13,
+        depthWrite: false,
+      }),
+    );
+    const wire = new THREE.Mesh(coreGeometry, wireMaterial);
+    wire.scale.setScalar(1.012);
+    world.add(wire);
+
+    // --- Inner cyan energy core ----------------------------------------------
+    const innerGeometry = track(new THREE.IcosahedronGeometry(0.72, 1));
+    const innerMaterial = track(
+      new THREE.MeshBasicMaterial({
+        color: 0x22d3ee,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.32,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    const inner = new THREE.Mesh(innerGeometry, innerMaterial);
+    world.add(inner);
+
+    // --- Orbital rings --------------------------------------------------------
+    const ringMaterial = track(
+      new THREE.MeshBasicMaterial({
+        color: 0x8b5cf6,
+        transparent: true,
+        opacity: 0.3,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    );
+    const ringGeometry = track(new THREE.TorusGeometry(2.15, 0.006, 3, 180));
+    const ringA = new THREE.Mesh(ringGeometry, ringMaterial);
+    ringA.rotation.set(1.1, 0.3, 0.2);
+    world.add(ringA);
+
+    const ringB = new THREE.Mesh(ringGeometry, ringMaterial);
+    ringB.rotation.set(-0.6, 0.9, -0.35);
+    ringB.scale.setScalar(1.16);
+    world.add(ringB);
+
+    // --- Drifting particle shell ---------------------------------------------
+    const particleCount = 320;
+    const positions = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount; i++) {
+      const radius = 1.7 + Math.random() * 1.6;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const theta = Math.random() * Math.PI * 2;
+      positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+      positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta) * 0.7;
+      positions[i * 3 + 2] = radius * Math.cos(phi);
+    }
+    const particleGeometry = track(new THREE.BufferGeometry());
+    particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const particleMaterial = track(
+      new THREE.PointsMaterial({
+        color: 0xa78bfa,
+        size: 0.022,
+        transparent: true,
+        opacity: 0.75,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        sizeAttenuation: true,
+      }),
+    );
+    const particles = new THREE.Points(particleGeometry, particleMaterial);
+    world.add(particles);
+
+    // --- Lighting -------------------------------------------------------------
+    scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+    const violetLight = new THREE.PointLight(0xa78bfa, 55, 24);
+    violetLight.position.set(-3, 2.4, 4);
+    scene.add(violetLight);
+    const cyanLight = new THREE.PointLight(0x22d3ee, 42, 24);
+    cyanLight.position.set(3.2, -1.6, 3.2);
+    scene.add(cyanLight);
+
+    // --- Interaction & lifecycle ---------------------------------------------
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let mouseX = 0;
+    let mouseY = 0;
+    let targetX = 0;
+    let targetY = 0;
+    let visible = true;
+    let rafId = 0;
+    const clock = new THREE.Clock();
+
+    const onPointer = (event: PointerEvent) => {
+      targetX = (event.clientX / Math.max(1, window.innerWidth) - 0.5) * 2;
+      targetY = (event.clientY / Math.max(1, window.innerHeight) - 0.5) * 2;
+    };
+
+    const resize = () => {
+      const width = Math.max(1, host.clientWidth);
+      const height = Math.max(1, host.clientHeight);
+      renderer.setSize(width, height, false);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+    };
+
+    const draw = () => {
+      mouseX += (targetX - mouseX) * 0.045;
+      mouseY += (targetY - mouseY) * 0.045;
+
+      const delta = Math.min(clock.getDelta(), 0.05);
+      core.rotation.y += delta * 0.16;
+      core.rotation.x += delta * 0.07;
+      wire.rotation.copy(core.rotation);
+      inner.rotation.y -= delta * 0.28;
+      inner.rotation.z += delta * 0.1;
+      ringA.rotation.z += delta * 0.06;
+      ringB.rotation.z -= delta * 0.04;
+      particles.rotation.y -= delta * 0.025;
+
+      world.rotation.y = mouseX * 0.16;
+      world.rotation.x = mouseY * 0.1;
+      camera.position.x += (mouseX * 0.35 - camera.position.x) * 0.04;
+      camera.position.y += (-mouseY * 0.28 - camera.position.y) * 0.04;
+      camera.lookAt(0, 0, 0);
+
+      renderer.render(scene, camera);
+    };
+
+    const animate = () => {
+      rafId = window.requestAnimationFrame(animate);
+      if (!visible || document.hidden) return;
+      draw();
+    };
+
+    const intersectionObserver = new IntersectionObserver(
+      ([entry]) => {
+        visible = entry?.isIntersecting ?? true;
+      },
+      { threshold: 0.01 },
+    );
+    intersectionObserver.observe(host);
+
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(host);
+    resize();
+
+    if (reduceMotion) {
+      draw();
+    } else {
+      window.addEventListener('pointermove', onPointer, { passive: true });
+      rafId = window.requestAnimationFrame(animate);
+    }
 
     return () => {
       if (rafId) window.cancelAnimationFrame(rafId);
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('mousemove', handlePointer);
+      window.removeEventListener('pointermove', onPointer);
+      intersectionObserver.disconnect();
+      resizeObserver.disconnect();
+      disposables.forEach((item) => item.dispose());
+      renderer.dispose();
+      renderer.domElement.remove();
     };
   }, []);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-0 w-full h-full opacity-55"
-    />
-  );
+  return <div ref={hostRef} aria-hidden="true" className="pointer-events-none absolute inset-0" />;
 }

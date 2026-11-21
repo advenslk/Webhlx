@@ -266,7 +266,7 @@ export function initDatabase(): void {
     CREATE TABLE IF NOT EXISTS launch_campaign (
       id TEXT PRIMARY KEY,
       launch_date TEXT NOT NULL,
-      base_preorders INTEGER NOT NULL DEFAULT 47,
+      base_preorders INTEGER NOT NULL DEFAULT 0,
       early_access_limit INTEGER NOT NULL DEFAULT 50,
       announcement_text TEXT NOT NULL
     );
@@ -561,7 +561,7 @@ function seedInitialData(): void {
     `).run(
       'launch_2027',
       '2027-01-01T00:00:00Z',
-      47,
+      0,
       50,
       'Official Global Launch on January 1, 2027 — The first 50 eligible verified accounts receive an 8GB RAM server allocation at launch.',
     );
@@ -581,7 +581,7 @@ function seedInitialData(): void {
       'Announcements',
       JSON.stringify(['Launch 2027', 'Cloud', 'Infrastructure']),
       'How HelzerX Technologies is connecting Proxmox LXC and Pterodactyl compute, custom product engineering, and hardware procurement under one platform.',
-      'On January 1, 2027, HelzerX Technologies opens public operations at https://helzerx.cyou. Our engineering focus centers on eliminating fragmented tooling: one verified identity across cloud infrastructure, creative studio sprints, and curated hardware fulfillment.\n\nWith 47 pre-orders already committed ahead of release, early-access verification is now open for the first 50 eligible accounts to claim 8GB RAM launch server allocations.',
+      'On January 1, 2027, HelzerX Technologies opens public operations at https://helzerx.cyou. Our engineering focus centers on eliminating fragmented tooling: one verified identity across cloud infrastructure, creative studio sprints, and curated hardware fulfillment.\n\nEarly-access verification is now open for the first 50 eligible accounts to claim 8GB RAM launch server allocations.',
       'HelzerX Engineering Team',
       'published',
       1,
@@ -730,4 +730,13 @@ function seedInitialData(): void {
       now,
     );
   }
+
+  // Remove the old seeded marketing count so the launch counter reflects only
+  // real registrations and orders recorded by this installation.
+  db.prepare(
+    "UPDATE launch_campaign SET base_preorders = 0 WHERE id = 'launch_2027' AND base_preorders = 47",
+  ).run();
+  db.prepare(
+    "UPDATE blog_posts SET content = REPLACE(content, 'With 47 pre-orders already committed ahead of release, ', '') WHERE content LIKE '%47 pre-orders%'",
+  ).run();
 }

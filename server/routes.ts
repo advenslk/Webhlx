@@ -511,8 +511,8 @@ apiRouter.get('/public/site-data', (_req, res) => {
     blogPosts,
     launch: {
       launchDate: campaign?.launch_date ?? '2027-01-01T00:00:00Z',
-      basePreorders: campaign?.base_preorders ?? 47,
-      totalPreorders: (campaign?.base_preorders ?? 47) + orderCountRow.c,
+      basePreorders: campaign?.base_preorders ?? 0,
+      totalPreorders: (campaign?.base_preorders ?? 0) + orderCountRow.c,
       earlyAccessLimit: campaign?.early_access_limit ?? 50,
       earlyAccessQualified: earlyAccessQualifiedRow.c,
       earlyAccessRegistrations: earlyAccessTotalRow.c,

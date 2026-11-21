@@ -3,6 +3,13 @@ import type { NextFunction, Request, Response } from 'express';
 
 const EPHEMERAL_SESSION_SECRET = crypto.randomBytes(32).toString('hex');
 
+if (process.env.NODE_ENV === 'production') {
+  const productionSecret = process.env.SESSION_SECRET?.trim() ?? '';
+  if (productionSecret.length < 32) {
+    throw new Error('SESSION_SECRET must be set to at least 32 characters in production.');
+  }
+}
+
 function getSessionSecret(): string {
   const configured = process.env.SESSION_SECRET?.trim();
   return configured && configured.length >= 16 ? configured : EPHEMERAL_SESSION_SECRET;

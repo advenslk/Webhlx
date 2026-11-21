@@ -146,9 +146,9 @@ export function Launch2027Page({ onNavigate }: Launch2027PageProps) {
           {/* Live Database Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-14">
             <div className="rounded-2xl bg-[#080910] border border-white/[0.1] p-7">
-              <div className="text-xs text-neutral-400">Live Pre-Orders (Initial 47 + DB)</div>
+              <div className="text-xs text-neutral-400">Live Pre-Orders</div>
               <div className="mt-2 font-mono text-3xl font-bold text-white tabular-nums">
-                {status?.totalPreorders ?? 47}
+                {status?.totalPreorders ?? 0}
               </div>
               <p className="mt-2 text-xs text-neutral-500">
                 Connected directly to persistent Shop &amp; pre-launch order records.

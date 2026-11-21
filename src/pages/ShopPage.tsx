@@ -247,7 +247,7 @@ export function ShopPage({ onNavigate }: ShopPageProps) {
             <span aria-hidden="true" className="mx-2 text-cyan-400/70">·</span>
             <span>Digital Licenses</span>
             <span aria-hidden="true" className="mx-2 text-cyan-400/70">·</span>
-            <span>Coupon: HELZERX2027 (20% Off)</span>
+            <span>Coupon: HELZERX2027 (15% Off)</span>
           </div>
 
           <h1 className="text-[clamp(2.5rem,5.5vw,4.25rem)] font-extrabold tracking-[-0.03em] leading-[1.04] text-white max-w-[18ch] mx-auto">
