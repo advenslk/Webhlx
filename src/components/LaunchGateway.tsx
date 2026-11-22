@@ -17,7 +17,6 @@ export function LaunchGateway({ visible, onEnterSite }: LaunchGatewayProps) {
   const [jumping, setJumping] = useState(false);
 
   const launchDateIso = siteData?.launch?.launchDate || '2027-01-01T00:00:00Z';
-  const totalPreorders = siteData?.launch?.totalPreorders ?? 47;
   const earlyAccessLimit = siteData?.launch?.earlyAccessLimit ?? 50;
   const earlyAccessQualified = siteData?.launch?.earlyAccessQualified ?? 0;
   const spotsRemaining = Math.max(0, earlyAccessLimit - earlyAccessQualified);
@@ -163,24 +162,8 @@ export function LaunchGateway({ visible, onEnterSite }: LaunchGatewayProps) {
             style={{ transformPerspective: 1200, transformStyle: 'preserve-3d' }}
             className="relative z-10 w-full max-w-[980px] mx-auto flex flex-col items-center text-center my-auto"
           >
-            {/* Floating Sculpted 3D White Ceramic Brand Medallion */}
-            <motion.div
-              animate={
-                shouldReduceMotion || jumping
-                  ? undefined
-                  : {
-                      y: [-4, 4, -4],
-                      rotateY: [-7, 7, -7],
-                    }
-              }
-              transition={
-                shouldReduceMotion
-                  ? undefined
-                  : { duration: 6.5, repeat: Infinity, ease: 'easeInOut' }
-              }
-              style={{ transformStyle: 'preserve-3d' }}
-              className="mb-7 sm:mb-8 inline-flex items-center gap-3 px-5 py-3 rounded-2xl bg-gradient-to-b from-white via-[#F5F5F7] to-[#E2E2EC] shadow-[0_6px_0_#A1A1B0,0_11px_0_#7A7A89,0_26px_55px_rgba(0,0,0,0.68),inset_0_2px_0_rgba(255,255,255,1)]"
-            >
+            {/* Static Flat Brand Header */}
+            <div className="mb-7 sm:mb-8 inline-flex items-center gap-3 px-5 py-2.5 rounded-2xl bg-white border border-black/10 shadow-sm">
               <img
                 src={HELZERX_LOGO_URL}
                 alt="HelzerX Technologies"
@@ -189,7 +172,7 @@ export function LaunchGateway({ visible, onEnterSite }: LaunchGatewayProps) {
               <span className="text-base sm:text-lg font-extrabold tracking-tight text-[#0A0A0B]">
                 helzerx.
               </span>
-            </motion.div>
+            </div>
 
             {/* Quiet Unboxed Editorial Launch Line */}
             <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 text-xs font-medium text-neutral-400">
@@ -249,7 +232,7 @@ export function LaunchGateway({ visible, onEnterSite }: LaunchGatewayProps) {
                 type="button"
                 onClick={() => triggerJump('home')}
                 disabled={jumping}
-                className="group inline-flex items-center justify-center gap-3 px-9 py-4 rounded-2xl bg-gradient-to-b from-white via-[#F6F6F9] to-[#E3E3EC] text-[#0A0A0B] text-sm sm:text-base font-extrabold tracking-tight shadow-[0_6px_0_#9E9EAE,0_11px_0_#6B6B7B,0_24px_60px_rgba(255,255,255,0.18),inset_0_2px_0_rgba(255,255,255,1)] hover:from-white hover:to-[#EFEFF5] active:translate-y-[4px] active:shadow-[0_2px_0_#9E9EAE,0_10px_28px_rgba(255,255,255,0.14)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-4 focus-visible:ring-offset-[#07070A] transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer"
+                className="group inline-flex items-center justify-center gap-3 px-9 py-4 rounded-2xl bg-gradient-to-b from-white to-[#F2F2F6] text-[#0A0A0B] text-sm sm:text-base font-extrabold tracking-tight shadow-[0_3px_0_#B4B4C2,0_14px_34px_rgba(255,255,255,0.12),inset_0_1px_0_rgba(255,255,255,1)] hover:from-white hover:to-[#FAFAFC] active:translate-y-[2px] active:shadow-[0_1px_0_#B4B4C2,0_8px_20px_rgba(255,255,255,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-4 focus-visible:ring-offset-[#07070A] transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <span>Go to Website</span>
                 <ArrowRight className="w-4 h-4 transition-transform duration-150 group-hover:translate-x-1" />
@@ -268,7 +251,7 @@ export function LaunchGateway({ visible, onEnterSite }: LaunchGatewayProps) {
 
             {/* Quiet Platform Launch Ledger Readout */}
             <p className="mt-7 text-xs text-neutral-500 tabular-nums">
-              <span className="text-neutral-300 font-semibold">{totalPreorders} Pre-Orders Committed</span>
+              <span className="text-neutral-300 font-semibold">Cloud · Studio · Shop Unified</span>
               <span aria-hidden="true" className="mx-2 text-neutral-700">·</span>
               <span>
                 {spotsRemaining} of {earlyAccessLimit} First-50 Launch Allocations Open

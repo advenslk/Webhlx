@@ -44,7 +44,6 @@ export function HomePage({ onNavigate }: HomePageProps) {
   const heroDesc =
     general?.heroDescription ||
     'Powering the next generation of digital experiences through innovative technology, reliable infrastructure, and creative solutions.';
-  const totalPreorders = siteData?.launch?.totalPreorders ?? 47;
   const earlyAccessQualified = siteData?.launch?.earlyAccessQualified ?? 0;
   const earlyAccessLimit = siteData?.launch?.earlyAccessLimit ?? 50;
   const announcements = siteData?.announcements ?? [];
@@ -81,7 +80,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
               onClick={() => onNavigate('launch')}
               className="inline-flex items-center gap-1 font-semibold text-[#0A0A0B] hover:text-neutral-600 transition-colors cursor-pointer"
             >
-              <span className="tabular-nums">{totalPreorders} Pre-Orders Active</span>
+              <span className="tabular-nums">Early Access Open</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </button>
           </motion.div>
@@ -183,12 +182,12 @@ export function HomePage({ onNavigate }: HomePageProps) {
               <div className="p-6 h-full flex flex-col justify-between">
                 <div>
                   <div className="text-2xl sm:text-3xl font-extrabold text-[#0A0A0B] tracking-tight tabular-nums">
-                    {totalPreorders}+
+                    10 Gbps
                   </div>
-                  <div className="mt-2 text-xs font-bold text-[#0A0A0B]">Pre-Orders Committed</div>
+                  <div className="mt-2 text-xs font-bold text-[#0A0A0B]">DDoS-Shielded Network</div>
                 </div>
                 <p className="mt-2 text-xs text-neutral-600 leading-relaxed">
-                  Verified reservations tracked against live platform ledger records.
+                  High-frequency Ryzen &amp; EPYC bare-metal nodes with low-latency global routing.
                 </p>
               </div>
             </Surface3D>
@@ -590,7 +589,9 @@ export function HomePage({ onNavigate }: HomePageProps) {
                     />
                   </div>
                   <div className="pt-2 flex items-center justify-between text-xs text-neutral-600">
-                    <span className="tabular-nums">{totalPreorders} total pre-orders logged</span>
+                    <span className="tabular-nums">
+                      {Math.max(0, earlyAccessLimit - earlyAccessQualified)} launch spots remaining
+                    </span>
                     <button
                       type="button"
                       onClick={() => onNavigate('launch')}
@@ -664,8 +665,8 @@ export function HomePage({ onNavigate }: HomePageProps) {
                   Reserve your 8GB RAM Early Access server
                 </h2>
                 <p className="mt-3 text-sm md:text-base text-neutral-300 leading-relaxed">
-                  With {totalPreorders} pre-orders committed, our launch program allocates an 8GB
-                  RAM server to the first 50 verified members registered before January 1, 2027.
+                  Ahead of our global release, our launch program allocates an 8GB RAM server to
+                  the first 50 verified members registered before January 1, 2027.
                 </p>
               </div>
 

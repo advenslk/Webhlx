@@ -144,12 +144,12 @@ export function Launch2027Page({ onNavigate }: Launch2027PageProps) {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-14">
             <Surface3D intensity={13} delay={0.04}>
               <div className="p-7 h-full">
-                <div className="text-xs font-semibold text-neutral-600">Live Pre-Orders</div>
+                <div className="text-xs font-semibold text-neutral-600">Launch Server Spec</div>
                 <div className="mt-2 text-3xl font-extrabold tracking-tight text-[#0A0A0B] tabular-nums">
-                  {status?.totalPreorders ?? 0}
+                  8 GB RAM
                 </div>
                 <p className="mt-2 text-xs text-neutral-600">
-                  Connected directly to persistent Shop &amp; pre-launch order records.
+                  Dedicated Pterodactyl launch node allocated to the first 50 verified accounts.
                 </p>
               </div>
             </Surface3D>

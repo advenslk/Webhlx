@@ -10,7 +10,6 @@ interface CommunityPageProps {
 export function CommunityPage({ onNavigate }: CommunityPageProps) {
   const { siteData } = useAppContext();
   const announcements = siteData?.announcements ?? [];
-  const totalPreorders = siteData?.launch?.totalPreorders ?? 0;
   const qualified = siteData?.launch?.earlyAccessQualified ?? 0;
 
   return (
@@ -61,10 +60,10 @@ export function CommunityPage({ onNavigate }: CommunityPageProps) {
                   <Users className="w-5 h-5" />
                 </div>
                 <div className="mt-5 text-2xl font-extrabold tracking-tight text-[#0A0A0B] tabular-nums">
-                  {totalPreorders}+ Pre-Orders
+                  3 Divisions
                 </div>
                 <p className="mt-2 text-xs text-neutral-600">
-                  Active pre-launch community reservations tracked live across helzerx.cyou.
+                  Cloud infrastructure, Studio engineering, and Shop hardware unified under one ID.
                 </p>
               </div>
             </Surface3D>
