@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle2, Mail, RefreshCw, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, KeyRound, Mail, RefreshCw, ShieldAlert } from 'lucide-react';
 import {
   ClipboardEvent,
   FormEvent,
@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { Surface3D } from '../components/Surface3D';
 import { TurnstileWidget } from '../components/TurnstileWidget';
-import { useAppContext, type AuthUser } from '../context/AppContext';
+import { isAdminPanelRole, useAppContext, type AuthUser } from '../context/AppContext';
 import { apiRequest } from '../lib/api';
 import { PageRoute } from '../types/navigation';
 
@@ -69,6 +69,8 @@ export function AuthPage({ onNavigate }: AuthPageProps) {
   const [deliveryMode, setDeliveryMode] = useState<'email' | 'preview'>('email');
   const [codePreview, setCodePreview] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [totpInput, setTotpInput] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<OAuthProvider | null>(null);
@@ -110,11 +112,13 @@ export function AuthPage({ onNavigate }: AuthPageProps) {
   useEffect(() => {
     const handleOAuthMessage = (event: MessageEvent) => {
       const origin = event.origin;
-      if (
-        origin !== window.location.origin &&
-        !origin.endsWith('.run.app') &&
-        !origin.includes('localhost')
-      ) {
+      const isTrustedOrigin =
+        origin === window.location.origin ||
+        origin.endsWith('.run.app') ||
+        origin.endsWith('.helzerx.cyou') ||
+        origin === 'https://helzerx.cyou' ||
+        origin.includes('localhost');
+      if (!isTrustedOrigin) {
         return;
       }
 
@@ -122,9 +126,7 @@ export function AuthPage({ onNavigate }: AuthPageProps) {
         const authedUser = event.data.user as AuthUser;
         setSession(String(event.data.token), authedUser);
         setOauthLoading(null);
-        onNavigate(
-          authedUser.role === 'super_admin' || authedUser.role === 'admin' ? 'admin' : 'dashboard',
-        );
+        onNavigate(isAdminPanelRole(authedUser.role) ? 'admin' : 'dashboard');
       } else if (event.data?.type === 'HELZERX_OAUTH_ERROR') {
         setOauthLoading(null);
         setError(
@@ -153,6 +155,8 @@ export function AuthPage({ onNavigate }: AuthPageProps) {
     setOtpDigits(['', '', '', '', '', '']);
     setCodePreview(null);
     setChallengeId('');
+    setMfaRequired(false);
+    setTotpInput('');
     resetTurnstile();
   };
 
@@ -231,17 +235,44 @@ export function AuthPage({ onNavigate }: AuthPageProps) {
       return;
     }
 
+    if (mfaRequired && !totpInput.trim()) {
+      setError('Enter your 6-digit Authenticator MFA code or one-time backup code.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      const res = await apiRequest<{ token: string; user: AuthUser }>('/api/auth/otp/verify', {
+      const cleanedMfa = totpInput.trim();
+      const isTotpDigits = /^\d{6}$/.test(cleanedMfa);
+      const res = await apiRequest<{
+        mfaRequired?: boolean;
+        token?: string;
+        user?: AuthUser;
+      }>('/api/auth/otp/verify', {
         method: 'POST',
-        body: JSON.stringify({ challengeId, code }),
+        body: JSON.stringify({
+          challengeId,
+          code,
+          ...(mfaRequired && cleanedMfa
+            ? isTotpDigits
+              ? { totpCode: cleanedMfa }
+              : { backupCode: cleanedMfa }
+            : {}),
+        }),
       });
-      setSession(res.token, res.user);
-      onNavigate(
-        res.user.role === 'super_admin' || res.user.role === 'admin' ? 'admin' : 'dashboard',
-      );
+
+      if (res.mfaRequired) {
+        setMfaRequired(true);
+        setNotice('Email code verified. Enter your Authenticator App 6-digit TOTP or backup code.');
+        setLoading(false);
+        return;
+      }
+
+      if (res.token && res.user) {
+        setSession(res.token, res.user);
+        onNavigate(isAdminPanelRole(res.user.role) ? 'admin' : 'dashboard');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid verification code.');
     } finally {
@@ -552,7 +583,8 @@ export function AuthPage({ onNavigate }: AuthPageProps) {
                     htmlFor="auth-pass"
                     className="block text-xs font-semibold text-[#0A0A0B] mb-1.5"
                   >
-                    Password {mode !== 'login' ? '(min 8 characters)' : ''}
+                    Password{' '}
+                    {mode !== 'login' ? '(min 8 chars · letters + number or symbol)' : ''}
                   </label>
                   <input
                     id="auth-pass"
@@ -749,6 +781,23 @@ export function AuthPage({ onNavigate }: AuthPageProps) {
                   ))}
                 </div>
               </div>
+
+              {mfaRequired && (
+                <div className="rounded-xl bg-[#F8F8FA] border border-black/[0.12] p-4 space-y-2.5">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#0A0A0B]">
+                    <KeyRound className="w-4 h-4 text-[#0A0A0B]" />
+                    <span>Authenticator MFA Verification</span>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter 6-digit TOTP or XXXX-XXXX backup code"
+                    value={totpInput}
+                    onChange={(e) => setTotpInput(e.target.value)}
+                    className="w-full rounded-lg bg-white border border-black/[0.15] px-3 py-2 text-sm font-mono text-[#0A0A0B] focus:outline-none focus:border-black"
+                  />
+                </div>
+              )}
 
               {notice && !codePreview && (
                 <p className="text-xs font-medium text-emerald-700 text-center">{notice}</p>

@@ -340,9 +340,71 @@ export function initDatabase(): void {
       consumed INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS user_sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      ip_address TEXT DEFAULT '',
+      user_agent TEXT DEFAULT '',
+      created_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      revoked_at TEXT,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS auth_lockouts (
+      email TEXT PRIMARY KEY,
+      failed_attempts INTEGER NOT NULL DEFAULT 0,
+      locked_until TEXT,
+      last_failed_at TEXT,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS security_events (
+      id TEXT PRIMARY KEY,
+      event_type TEXT NOT NULL,
+      severity TEXT NOT NULL DEFAULT 'info',
+      ip_address TEXT DEFAULT '',
+      actor_email TEXT DEFAULT '',
+      path TEXT DEFAULT '',
+      details TEXT DEFAULT '',
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS idempotency_keys (
+      key TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      route TEXT NOT NULL,
+      status_code INTEGER NOT NULL,
+      response_json TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions(user_id, revoked_at);
+    CREATE INDEX IF NOT EXISTS idx_security_events_created ON security_events(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_security_events_actor ON security_events(actor_email, created_at DESC);
   `);
 
+  ensureUserSecurityColumns();
   seedInitialData();
+}
+
+function ensureUserSecurityColumns(): void {
+  const cols = db.prepare('PRAGMA table_info(users)').all() as { name: string }[];
+  const names = new Set(cols.map((c) => c.name));
+  const additions: [string, string][] = [
+    ['totp_secret', "TEXT DEFAULT ''"],
+    ['totp_enabled', 'INTEGER NOT NULL DEFAULT 0'],
+    ['mfa_backup_hashes_json', "TEXT DEFAULT '[]'"],
+    ['last_login_at', "TEXT DEFAULT ''"],
+    ['last_login_ip', "TEXT DEFAULT ''"],
+  ];
+  for (const [col, def] of additions) {
+    if (!names.has(col)) {
+      db.exec(`ALTER TABLE users ADD COLUMN ${col} ${def};`);
+    }
+  }
 }
 
 function seedInitialData(): void {
@@ -752,4 +814,22 @@ function seedInitialData(): void {
   db.prepare(
     "UPDATE blog_posts SET content = REPLACE(content, 'With 47 pre-orders already committed ahead of release, ', '') WHERE content LIKE '%47 pre-orders%'",
   ).run();
+
+  const secControls = db
+    .prepare("SELECT key FROM site_settings WHERE key = 'security_controls'")
+    .get();
+  if (!secControls) {
+    db.prepare('INSERT INTO site_settings (key, value_json, updated_at) VALUES (?, ?, ?)').run(
+      'security_controls',
+      JSON.stringify({
+        maintenanceLockdown: false,
+        loginRestriction: false,
+        apiEmergencyReadOnly: false,
+        emergencySecurityMode: false,
+        requireAdminMfa: false,
+        devtoolsDeterrence: false,
+      }),
+      now,
+    );
+  }
 }

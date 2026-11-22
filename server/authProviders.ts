@@ -113,9 +113,13 @@ export async function sendOtpEmail(params: {
     process.env.EMAIL_FROM?.trim() || 'HelzerX Technologies <onboarding@resend.dev>';
 
   if (!apiKey) {
-    console.info(
-      `[HelzerX Auth OTP] (${params.purpose}) 6-digit verification code for ${params.email}: ${params.code}`,
-    );
+    if (process.env.NODE_ENV !== 'production') {
+      console.info(
+        `[HelzerX Auth OTP] (${params.purpose}) 6-digit verification code for ${params.email}: ${params.code}`,
+      );
+    } else {
+      console.info(`[HelzerX Auth OTP] (${params.purpose}) Preview OTP issued for ${params.email}`);
+    }
     return { deliveryMode: 'preview', provider: 'preview' };
   }
 
@@ -227,13 +231,54 @@ export function getProviderConfig(provider: string): OAuthProviderConfig | null 
   }
 }
 
-export function resolveAppBaseUrl(requestedOrigin?: string): string {
+function isAllowedAppOrigin(originUrl: string, requestHost?: string): boolean {
+  try {
+    const parsed = new URL(originUrl);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
+    if (parsed.username || parsed.password) return false;
+
+    const host = parsed.hostname.toLowerCase();
+    if (
+      host === 'helzerx.cyou' ||
+      host === 'www.helzerx.cyou' ||
+      host.endsWith('.helzerx.cyou') ||
+      host.endsWith('.run.app') ||
+      host === 'localhost' ||
+      host === '127.0.0.1'
+    ) {
+      return true;
+    }
+
+    if (requestHost) {
+      const normalizedReqHost = requestHost.split(':')[0].trim().toLowerCase();
+      if (normalizedReqHost && host === normalizedReqHost) {
+        return true;
+      }
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+export function resolveAppBaseUrl(requestedOrigin?: string, requestHost?: string): string {
   const configuredAppUrl = process.env.APP_URL?.trim();
   if (configuredAppUrl && isSafeHttpUrl(configuredAppUrl)) {
     return configuredAppUrl.replace(/\/+$/, '');
   }
-  if (requestedOrigin && isSafeHttpUrl(requestedOrigin)) {
+  if (requestedOrigin && isSafeHttpUrl(requestedOrigin) && isAllowedAppOrigin(requestedOrigin, requestHost)) {
     return new URL(requestedOrigin).origin;
+  }
+  if (requestHost) {
+    const normalizedHost = requestHost.replace(/[^a-zA-Z0-9.:-]/g, '');
+    if (normalizedHost) {
+      const protocol =
+        normalizedHost.startsWith('localhost') || normalizedHost.startsWith('127.0.0.1')
+          ? 'http'
+          : 'https';
+      return `${protocol}://${normalizedHost}`;
+    }
   }
   return 'http://localhost:3000';
 }

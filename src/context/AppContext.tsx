@@ -1,7 +1,30 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { apiRequest, getAuthToken, setAuthToken } from '../lib/api';
 
-export type UserRole = 'super_admin' | 'admin' | 'staff' | 'partner' | 'customer';
+export type UserRole =
+  | 'super_admin'
+  | 'admin'
+  | 'security_admin'
+  | 'finance_manager'
+  | 'support_manager'
+  | 'moderator'
+  | 'staff'
+  | 'partner'
+  | 'customer';
+
+export const ADMIN_PANEL_ROLES: UserRole[] = [
+  'super_admin',
+  'admin',
+  'security_admin',
+  'finance_manager',
+  'support_manager',
+  'moderator',
+  'staff',
+];
+
+export function isAdminPanelRole(role: string | undefined | null): boolean {
+  return Boolean(role && ADMIN_PANEL_ROLES.includes(role as UserRole));
+}
 
 export interface AuthUser {
   id: string;
@@ -13,6 +36,9 @@ export interface AuthUser {
   avatar_url: string;
   notify_email: number;
   notify_security: number;
+  totp_enabled?: number;
+  last_login_at?: string;
+  last_login_ip?: string;
   created_at: string;
 }
 
@@ -30,6 +56,14 @@ export interface SiteSettingsGeneral {
 export interface PublicSiteData {
   settings: {
     general?: SiteSettingsGeneral;
+    security_controls?: {
+      maintenanceLockdown?: boolean;
+      loginRestriction?: boolean;
+      apiEmergencyReadOnly?: boolean;
+      emergencySecurityMode?: boolean;
+      requireAdminMfa?: boolean;
+      devtoolsDeterrence?: boolean;
+    };
   };
   announcements: {
     id: string;
@@ -91,6 +125,7 @@ interface AppContextValue {
   setSession: (token: string | null, user: AuthUser | null) => void;
   refreshUser: () => Promise<void>;
   logout: () => void;
+  logoutAll: () => Promise<void>;
   isAdminRole: boolean;
   siteData: PublicSiteData | null;
   refreshSiteData: () => Promise<void>;
@@ -176,8 +211,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => persist(WISHLIST_KEY, wishlist), [wishlist]);
 
   const logout = useCallback(() => {
+    const currentToken = getAuthToken();
+    if (currentToken) {
+      void fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${currentToken}` },
+      }).catch(() => {
+        // Ignore network errors while clearing client session
+      });
+    }
     setAuthToken(null);
     setUser(null);
+  }, []);
+
+  const logoutAll = useCallback(async () => {
+    try {
+      await apiRequest('/api/auth/logout-all', { method: 'POST' });
+    } catch {
+      // Clear local session regardless
+    } finally {
+      setAuthToken(null);
+      setUser(null);
+    }
   }, []);
 
   const addToCart = useCallback((item: Omit<CartItem, 'quantity'>) => {
@@ -207,8 +262,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  const isAdminRole =
-    user !== null && (user.role === 'super_admin' || user.role === 'admin' || user.role === 'staff');
+  const isAdminRole = user !== null && isAdminPanelRole(user.role);
 
   return (
     <AppContext.Provider
@@ -218,6 +272,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setSession,
         refreshUser,
         logout,
+        logoutAll,
         isAdminRole,
         siteData,
         refreshSiteData,

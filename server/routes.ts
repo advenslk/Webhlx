@@ -1,4 +1,6 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import type { NextFunction, Request, Response } from 'express';
 import { Router } from 'express';
 import { db } from './db.ts';
@@ -9,16 +11,32 @@ import {
   sendPterodactylPowerSignal,
 } from './pterodactyl.ts';
 import {
+  ADMIN_ROLES,
+  ALL_USER_ROLES,
+  buildTotpOtpAuthUri,
   cleanText,
   createRateLimiter,
+  decryptAndVerifyBackupBuffer,
+  encryptBackupBuffer,
   generateId,
+  generateTotpSecret,
+  getRuntimeSecurityCounters,
   hashPassword,
+  hasPermission,
+  isAdminPanelRole,
   isSafeHttpUrl,
   isValidEmail,
-  sanitizeFileName,
+  registerSecurityEventSink,
   signSessionToken,
+  setEmergencySecurityModeState,
+  validateAttachmentFile,
+  validatePasswordStrength,
   verifyPassword,
   verifySessionToken,
+  verifyStripeWebhookSignature,
+  verifyTotpCode,
+  type AdminPermission,
+  type SecurityEventInput,
   type UserRole,
 } from './security.ts';
 import {
@@ -44,12 +62,89 @@ interface AuthenticatedUser {
   avatar_url: string;
   notify_email: number;
   notify_security: number;
+  totp_enabled: number;
+  last_login_at: string;
+  last_login_ip: string;
   created_at: string;
+}
+
+interface SecurityControlsState {
+  maintenanceLockdown: boolean;
+  loginRestriction: boolean;
+  apiEmergencyReadOnly: boolean;
+  emergencySecurityMode: boolean;
+  requireAdminMfa: boolean;
+  devtoolsDeterrence: boolean;
+}
+
+const DEFAULT_SECURITY_CONTROLS: SecurityControlsState = {
+  maintenanceLockdown: false,
+  loginRestriction: false,
+  apiEmergencyReadOnly: false,
+  emergencySecurityMode: false,
+  requireAdminMfa: false,
+  devtoolsDeterrence: false,
+};
+
+function getSecurityControls(): SecurityControlsState {
+  try {
+    const row = db
+      .prepare("SELECT value_json FROM site_settings WHERE key = 'security_controls'")
+      .get() as { value_json: string } | undefined;
+    if (!row) return { ...DEFAULT_SECURITY_CONTROLS };
+    const parsed = JSON.parse(row.value_json) as Partial<SecurityControlsState>;
+    const merged: SecurityControlsState = {
+      maintenanceLockdown: Boolean(parsed.maintenanceLockdown),
+      loginRestriction: Boolean(parsed.loginRestriction),
+      apiEmergencyReadOnly: Boolean(parsed.apiEmergencyReadOnly),
+      emergencySecurityMode: Boolean(parsed.emergencySecurityMode),
+      requireAdminMfa:
+        Boolean(parsed.requireAdminMfa) || process.env.REQUIRE_ADMIN_MFA?.trim() === 'true',
+      devtoolsDeterrence: Boolean(parsed.devtoolsDeterrence),
+    };
+    setEmergencySecurityModeState(merged.emergencySecurityMode);
+    return merged;
+  } catch {
+    return { ...DEFAULT_SECURITY_CONTROLS };
+  }
 }
 
 interface AuthedRequest extends Request {
   authUser?: AuthenticatedUser;
+  authSessionId?: string;
 }
+
+function getClientIp(req: Request): string {
+  return cleanText(req.ip || req.socket.remoteAddress || 'unknown', 80);
+}
+
+function getUserAgent(req: Request): string {
+  return cleanText(req.headers['user-agent'] || 'Unknown client', 220);
+}
+
+function recordSecurityEvent(event: SecurityEventInput): void {
+  try {
+    db.prepare(`
+      INSERT INTO security_events (id, event_type, severity, ip_address, actor_email, path, details, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      generateId('sec'),
+      cleanText(event.eventType, 60),
+      event.severity,
+      cleanText(event.ipAddress, 80),
+      cleanText(event.actorEmail || '', 254).toLowerCase(),
+      cleanText(event.path || '', 200),
+      cleanText(event.details || '', 400),
+      new Date().toISOString(),
+    );
+  } catch {
+    // ignore logging failure
+  }
+}
+
+registerSecurityEventSink((event) => {
+  recordSecurityEvent(event);
+});
 
 function sanitizeUser(row: Record<string, unknown>): AuthenticatedUser {
   return {
@@ -62,43 +157,187 @@ function sanitizeUser(row: Record<string, unknown>): AuthenticatedUser {
     avatar_url: String(row.avatar_url ?? ''),
     notify_email: Number(row.notify_email ?? 1),
     notify_security: Number(row.notify_security ?? 1),
+    totp_enabled: Number(row.totp_enabled ?? 0),
+    last_login_at: String(row.last_login_at ?? ''),
+    last_login_ip: String(row.last_login_ip ?? ''),
     created_at: String(row.created_at),
   };
 }
 
-function getOptionalUser(req: Request): AuthenticatedUser | null {
+function issueUserSession(
+  user: { id: string; email: string; role: UserRole },
+  req: Request,
+): { token: string; sessionId: string } {
+  const sessionId = generateId('ses');
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+  const clientIp = getClientIp(req);
+
+  // Detect new IP address login for security alerting
+  const userMeta = db
+    .prepare('SELECT last_login_ip, notify_security FROM users WHERE id = ?')
+    .get(user.id) as { last_login_ip?: string; notify_security?: number } | undefined;
+
+  if (
+    userMeta?.last_login_ip &&
+    userMeta.last_login_ip !== clientIp &&
+    clientIp !== 'unknown'
+  ) {
+    recordSecurityEvent({
+      eventType: 'NEW_IP_LOGIN_DETECTED',
+      severity: 'warning',
+      ipAddress: clientIp,
+      actorEmail: user.email,
+      path: req.path,
+      details: `Sign-in from new IP ${clientIp} (previous ${userMeta.last_login_ip}).`,
+    });
+    if (userMeta.notify_security === 1) {
+      createNotification(
+        user.id,
+        'New IP Sign-In Detected',
+        `A sign-in occurred from ${clientIp}. Review Active Sessions in Security Settings if unrecognized.`,
+      );
+    }
+  }
+
+  db.prepare('UPDATE users SET last_login_at = ?, last_login_ip = ? WHERE id = ?').run(
+    nowIso,
+    clientIp,
+    user.id,
+  );
+
+  // Clean up expired sessions for this user to keep table tidy
+  db.prepare('DELETE FROM user_sessions WHERE user_id = ? AND expires_at < ?').run(user.id, nowIso);
+
+  db.prepare(`
+    INSERT INTO user_sessions (id, user_id, ip_address, user_agent, created_at, last_seen_at, expires_at, revoked_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, NULL)
+  `).run(sessionId, user.id, clientIp, getUserAgent(req), nowIso, nowIso, expiresAt);
+
+  const token = signSessionToken({
+    sub: user.id,
+    email: user.email,
+    role: user.role,
+    jti: sessionId,
+  });
+
+  return { token, sessionId };
+}
+
+function getOptionalSession(req: Request): { user: AuthenticatedUser; sessionId: string } | null {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
   const token = authHeader.slice(7).trim();
   const payload = verifySessionToken(token);
-  if (!payload) return null;
+  if (!payload || !payload.jti) return null;
+
+  const sessionRow = db
+    .prepare('SELECT id, user_id, expires_at, revoked_at, last_seen_at FROM user_sessions WHERE id = ?')
+    .get(payload.jti) as
+    | { id: string; user_id: string; expires_at: string; revoked_at: string | null; last_seen_at: string }
+    | undefined;
+
+  if (!sessionRow || sessionRow.user_id !== payload.sub || sessionRow.revoked_at !== null) {
+    return null;
+  }
+  if (new Date(sessionRow.expires_at) <= new Date()) {
+    return null;
+  }
+
   const row = db
     .prepare(
-      'SELECT id, name, email, role, status, email_verified, avatar_url, notify_email, notify_security, created_at FROM users WHERE id = ?',
+      'SELECT id, name, email, role, status, email_verified, avatar_url, notify_email, notify_security, totp_enabled, last_login_at, last_login_ip, created_at FROM users WHERE id = ?',
     )
     .get(payload.sub) as Record<string, unknown> | undefined;
   if (!row || row.status !== 'active') return null;
-  return sanitizeUser(row);
+
+  const nowMs = Date.now();
+  const lastSeenMs = new Date(sessionRow.last_seen_at).getTime();
+  if (!Number.isFinite(lastSeenMs) || nowMs - lastSeenMs > 60_000) {
+    db.prepare('UPDATE user_sessions SET last_seen_at = ? WHERE id = ?').run(
+      new Date(nowMs).toISOString(),
+      sessionRow.id,
+    );
+  }
+
+  return { user: sanitizeUser(row), sessionId: sessionRow.id };
+}
+
+function getOptionalUser(req: Request): AuthenticatedUser | null {
+  return getOptionalSession(req)?.user ?? null;
 }
 
 function requireAuth(req: AuthedRequest, res: Response, next: NextFunction): void {
-  const user = getOptionalUser(req);
-  if (!user) {
-    res.status(401).json({ error: 'Authentication required. Please sign in.' });
+  const session = getOptionalSession(req);
+  if (!session) {
+    res.status(401).json({ error: 'Authentication required or session expired. Please sign in.' });
     return;
   }
-  req.authUser = user;
+  req.authUser = session.user;
+  req.authSessionId = session.sessionId;
   next();
 }
 
 function requireRole(roles: UserRole[]) {
   return (req: AuthedRequest, res: Response, next: NextFunction): void => {
     if (!req.authUser || !roles.includes(req.authUser.role)) {
+      recordSecurityEvent({
+        eventType: 'UNAUTHORIZED_ROLE_ACCESS',
+        severity: 'high',
+        ipAddress: getClientIp(req),
+        actorEmail: req.authUser?.email || 'anonymous',
+        path: cleanText(`${req.baseUrl}${req.path}`, 200),
+        details: `Denied role ${req.authUser?.role || 'none'} access to restricted route.`,
+      });
       res.status(403).json({ error: 'Insufficient permissions for this action.' });
       return;
     }
     next();
   };
+}
+
+function requirePermission(permission: AdminPermission) {
+  return (req: AuthedRequest, res: Response, next: NextFunction): void => {
+    if (!req.authUser || !hasPermission(req.authUser.role, permission)) {
+      recordSecurityEvent({
+        eventType: 'PERMISSION_DENIED',
+        severity: 'warning',
+        ipAddress: getClientIp(req),
+        actorEmail: req.authUser?.email || 'anonymous',
+        path: cleanText(`${req.baseUrl}${req.path}`, 200),
+        details: `Role ${req.authUser?.role || 'none'} lacked permission ${permission}.`,
+      });
+      res.status(403).json({ error: `Missing permission (${permission}) for this operation.` });
+      return;
+    }
+    next();
+  };
+}
+
+function requireAdminIpAllowlist(req: Request, res: Response, next: NextFunction): void {
+  const rawList = process.env.ADMIN_IP_ALLOWLIST?.trim();
+  if (!rawList) {
+    next();
+    return;
+  }
+  const allowlist = rawList
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const ip = getClientIp(req);
+  if (allowlist.length > 0 && !allowlist.includes(ip)) {
+    recordSecurityEvent({
+      eventType: 'ADMIN_IP_BLOCKED',
+      severity: 'high',
+      ipAddress: ip,
+      path: cleanText(`${req.baseUrl}${req.path}`, 200),
+      details: 'Blocked admin API access from non-allowlisted IP.',
+    });
+    res.status(403).json({ error: 'Admin access denied from this network IP address.' });
+    return;
+  }
+  next();
 }
 
 function logAudit(
@@ -133,8 +372,57 @@ function createNotification(userId: string, title: string, body: string): void {
 
 export const apiRouter = Router();
 
-const authRateLimit = createRateLimiter(25, 10 * 60 * 1000);
-const formRateLimit = createRateLimiter(30, 10 * 60 * 1000);
+const authRateLimit = createRateLimiter(25, 10 * 60 * 1000, 'auth');
+const formRateLimit = createRateLimiter(30, 10 * 60 * 1000, 'form');
+
+// Enforce live server-side Emergency Controls (Maintenance Lockdown & Emergency Read-Only)
+apiRouter.use((req, res, next) => {
+  const controls = getSecurityControls();
+  const pathStr = req.path;
+
+  if (controls.maintenanceLockdown) {
+    const allowedInLockdown =
+      pathStr === '/health' ||
+      pathStr === '/public/site-data' ||
+      pathStr.startsWith('/auth/config') ||
+      pathStr.startsWith('/auth/bootstrap-status') ||
+      pathStr.startsWith('/auth/login/start') ||
+      pathStr.startsWith('/auth/otp/') ||
+      pathStr === '/auth/me' ||
+      pathStr === '/auth/logout';
+
+    if (!allowedInLockdown) {
+      const optUser = getOptionalUser(req);
+      if (!optUser || !isAdminPanelRole(optUser.role)) {
+        res.status(503).json({
+          error: 'Platform is temporarily in Emergency Maintenance Lockdown. Only administrators may access.',
+        });
+        return;
+      }
+    }
+  }
+
+  if (
+    controls.apiEmergencyReadOnly &&
+    ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method.toUpperCase())
+  ) {
+    const exemptMutation =
+      pathStr.startsWith('/auth/login/start') ||
+      pathStr.startsWith('/auth/otp/') ||
+      pathStr === '/auth/logout';
+    if (!exemptMutation) {
+      const optUser = getOptionalUser(req);
+      if (!optUser || !isAdminPanelRole(optUser.role)) {
+        res.status(503).json({
+          error: 'API is currently in Emergency Read-Only Restriction mode. Try again shortly.',
+        });
+        return;
+      }
+    }
+  }
+
+  next();
+});
 
 apiRouter.get('/health', (_req, res) => {
   res.json({
@@ -191,16 +479,30 @@ apiRouter.post('/auth/bootstrap-admin', authRateLimit, async (req, res) => {
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
   const passcode = typeof req.body?.passcode === 'string' ? req.body.passcode.trim() : '';
 
-  if (name.length < 2 || !isValidEmail(email) || password.length < 8) {
+  if (name.length < 2 || !isValidEmail(email)) {
     res.status(400).json({
-      error: 'Provide a valid name, email address, and password (minimum 8 characters).',
+      error: 'Provide a valid name and email address.',
     });
+    return;
+  }
+
+  const strengthErr = validatePasswordStrength(password);
+  if (strengthErr) {
+    res.status(400).json({ error: strengthErr });
     return;
   }
 
   const configuredPasscode = process.env.HELZERX_ADMIN_PASSCODE?.trim();
   if (configuredPasscode) {
     if (!passcode || passcode !== configuredPasscode) {
+      recordSecurityEvent({
+        eventType: 'ADMIN_BOOTSTRAP_INVALID_PASSCODE',
+        severity: 'high',
+        ipAddress: getClientIp(req),
+        actorEmail: email,
+        path: '/api/auth/bootstrap-admin',
+        details: 'Rejected initial super_admin claim with invalid passcode.',
+      });
       res.status(403).json({ error: 'Invalid admin setup passcode.' });
       return;
     }
@@ -249,97 +551,45 @@ apiRouter.post('/auth/bootstrap-admin', authRateLimit, async (req, res) => {
   }
 
   logAudit(userId, email, 'BOOTSTRAP_SUPER_ADMIN', 'users', userId, 'Claimed initial Super Admin');
-  const token = signSessionToken({ sub: userId, email, role: 'super_admin' });
+  recordSecurityEvent({
+    eventType: 'BOOTSTRAP_SUPER_ADMIN',
+    severity: 'info',
+    ipAddress: getClientIp(req),
+    actorEmail: email,
+    path: '/api/auth/bootstrap-admin',
+    details: 'Initial Super Admin identity claimed.',
+  });
+  const { token } = issueUserSession({ id: userId, email, role: 'super_admin' }, req);
   const row = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as Record<string, unknown>;
   res.status(201).json({ token, user: sanitizeUser(row) });
 });
 
-apiRouter.post('/auth/register', authRateLimit, async (req, res) => {
-  const name = cleanText(req.body?.name, 80);
-  const email = cleanText(req.body?.email, 254).toLowerCase();
-  const password = typeof req.body?.password === 'string' ? req.body.password : '';
-
-  if (name.length < 2) {
-    res.status(400).json({ error: 'Name must be at least 2 characters.' });
-    return;
-  }
-  if (!isValidEmail(email)) {
-    res.status(400).json({ error: 'Please provide a valid email address.' });
-    return;
-  }
-  if (password.length < 8) {
-    res.status(400).json({ error: 'Password must be at least 8 characters.' });
-    return;
-  }
-
-  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
-  if (existing) {
-    res.status(409).json({ error: 'An account with this email already exists.' });
-    return;
-  }
-
-  const userId = generateId('usr');
-  const passwordHash = await hashPassword(password);
-  const verificationToken = crypto.randomBytes(12).toString('hex');
-  const now = new Date().toISOString();
-
-  db.prepare(`
-    INSERT INTO users (id, name, email, password_hash, role, status, email_verified, verification_token, created_at, updated_at)
-    VALUES (?, ?, ?, ?, 'customer', 'active', 0, ?, ?, ?)
-  `).run(userId, name, email, passwordHash, verificationToken, now, now);
-
-  createNotification(
-    userId,
-    'Verify your HelzerX email',
-    'Complete email verification in Security Settings to unlock full Early Access eligibility.',
-  );
-
-  const token = signSessionToken({ sub: userId, email, role: 'customer' });
-  const row = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as Record<string, unknown>;
-  res.status(201).json({
-    token,
-    user: sanitizeUser(row),
-    verificationTokenPreview: verificationToken,
+apiRouter.post('/auth/register', authRateLimit, (req, res) => {
+  recordSecurityEvent({
+    eventType: 'LEGACY_AUTH_BYPASS_BLOCKED',
+    severity: 'warning',
+    ipAddress: getClientIp(req),
+    actorEmail: cleanText(req.body?.email, 254).toLowerCase(),
+    path: '/api/auth/register',
+    details: 'Blocked direct legacy registration without Cloudflare + 6-digit OTP.',
+  });
+  res.status(410).json({
+    error: 'Direct registration is disabled. Complete Cloudflare verification and 6-digit email OTP.',
   });
 });
 
-apiRouter.post('/auth/login', authRateLimit, async (req, res) => {
-  const email = cleanText(req.body?.email, 254).toLowerCase();
-  const password = typeof req.body?.password === 'string' ? req.body.password : '';
-
-  if (!isValidEmail(email) || !password) {
-    res.status(400).json({ error: 'Email and password are required.' });
-    return;
-  }
-
-  const row = db
-    .prepare('SELECT * FROM users WHERE email = ?')
-    .get(email) as Record<string, unknown> | undefined;
-
-  if (!row) {
-    res.status(401).json({ error: 'Invalid email or password.' });
-    return;
-  }
-
-  const valid = await verifyPassword(password, String(row.password_hash));
-  if (!valid) {
-    res.status(401).json({ error: 'Invalid email or password.' });
-    return;
-  }
-
-  if (row.status !== 'active') {
-    res.status(403).json({ error: 'This account has been suspended. Contact support.' });
-    return;
-  }
-
-  const role = String(row.role) as UserRole;
-  const token = signSessionToken({
-    sub: String(row.id),
-    email: String(row.email),
-    role,
+apiRouter.post('/auth/login', authRateLimit, (req, res) => {
+  recordSecurityEvent({
+    eventType: 'LEGACY_AUTH_BYPASS_BLOCKED',
+    severity: 'warning',
+    ipAddress: getClientIp(req),
+    actorEmail: cleanText(req.body?.email, 254).toLowerCase(),
+    path: '/api/auth/login',
+    details: 'Blocked direct legacy login without Cloudflare + 6-digit OTP.',
   });
-
-  res.json({ token, user: sanitizeUser(row) });
+  res.status(410).json({
+    error: 'Direct login is disabled. Complete Cloudflare verification and 6-digit email OTP.',
+  });
 });
 
 apiRouter.post('/auth/login/start', authRateLimit, async (req, res) => {
@@ -347,7 +597,7 @@ apiRouter.post('/auth/login/start', authRateLimit, async (req, res) => {
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
   const turnstileToken = typeof req.body?.turnstileToken === 'string' ? req.body.turnstileToken : '';
 
-  const turnstile = await verifyTurnstileToken(turnstileToken, req.ip);
+  const turnstile = await verifyTurnstileToken(turnstileToken, getClientIp(req));
   if (!turnstile.ok) {
     res.status(400).json({ error: turnstile.error || 'Cloudflare verification required.' });
     return;
@@ -358,6 +608,29 @@ apiRouter.post('/auth/login/start', authRateLimit, async (req, res) => {
     return;
   }
 
+  const lockout = db
+    .prepare('SELECT failed_attempts, locked_until FROM auth_lockouts WHERE email = ?')
+    .get(email) as { failed_attempts: number; locked_until: string | null } | undefined;
+
+  if (lockout?.locked_until && new Date(lockout.locked_until) > new Date()) {
+    const minsLeft = Math.max(
+      1,
+      Math.ceil((new Date(lockout.locked_until).getTime() - Date.now()) / 60_000),
+    );
+    recordSecurityEvent({
+      eventType: 'ACCOUNT_LOCKED_ATTEMPT',
+      severity: 'warning',
+      ipAddress: getClientIp(req),
+      actorEmail: email,
+      path: '/api/auth/login/start',
+      details: `Blocked login attempt during active brute-force lockout (${minsLeft}m left).`,
+    });
+    res.status(429).json({
+      error: `Account temporarily locked due to repeated failed sign-in attempts. Try again in ${minsLeft} minute${minsLeft === 1 ? '' : 's'}.`,
+    });
+    return;
+  }
+
   const row = db
     .prepare('SELECT * FROM users WHERE email = ?')
     .get(email) as Record<string, unknown> | undefined;
@@ -369,6 +642,43 @@ apiRouter.post('/auth/login/start', authRateLimit, async (req, res) => {
 
   const valid = await verifyPassword(password, String(row.password_hash));
   if (!valid) {
+    const nowIso = new Date().toISOString();
+    const nextFailed = (lockout?.failed_attempts ?? 0) + 1;
+    const shouldLock = nextFailed >= 5;
+    const lockedUntil = shouldLock ? new Date(Date.now() + 15 * 60 * 1000).toISOString() : null;
+
+    db.prepare(`
+      INSERT INTO auth_lockouts (email, failed_attempts, locked_until, last_failed_at, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(email) DO UPDATE SET
+        failed_attempts = excluded.failed_attempts,
+        locked_until = excluded.locked_until,
+        last_failed_at = excluded.last_failed_at,
+        updated_at = excluded.updated_at
+    `).run(email, nextFailed, lockedUntil, nowIso, nowIso);
+
+    if (shouldLock) {
+      recordSecurityEvent({
+        eventType: 'BRUTE_FORCE_LOCKOUT',
+        severity: 'high',
+        ipAddress: getClientIp(req),
+        actorEmail: email,
+        path: '/api/auth/login/start',
+        details: `Account locked for 15 minutes after ${nextFailed} failed password attempts.`,
+      });
+      if (Number(row.notify_security) === 1) {
+        createNotification(
+          String(row.id),
+          'Security Alert: Temporary Sign-In Lockout',
+          '5 failed sign-in attempts were blocked and your account was locked for 15 minutes.',
+        );
+      }
+      res.status(429).json({
+        error: 'Too many failed password attempts. Account locked for 15 minutes for protection.',
+      });
+      return;
+    }
+
     res.status(401).json({ error: 'Invalid email or password.' });
     return;
   }
@@ -377,6 +687,16 @@ apiRouter.post('/auth/login/start', authRateLimit, async (req, res) => {
     res.status(403).json({ error: 'This account has been suspended. Contact support.' });
     return;
   }
+
+  const controls = getSecurityControls();
+  if (controls.loginRestriction && !isAdminPanelRole(String(row.role) as UserRole)) {
+    res.status(403).json({
+      error: 'Customer sign-in is temporarily restricted by administrators. Please try again later.',
+    });
+    return;
+  }
+
+  db.prepare('DELETE FROM auth_lockouts WHERE email = ?').run(email);
 
   const challengeId = generateId('otp');
   const code = generateSixDigitCode();
@@ -406,12 +726,18 @@ apiRouter.post('/auth/login/start', authRateLimit, async (req, res) => {
 });
 
 apiRouter.post('/auth/register/start', authRateLimit, async (req, res) => {
+  const controls = getSecurityControls();
+  if (controls.loginRestriction || controls.maintenanceLockdown) {
+    res.status(403).json({ error: 'New account registrations are temporarily paused.' });
+    return;
+  }
+
   const name = cleanText(req.body?.name, 80);
   const email = cleanText(req.body?.email, 254).toLowerCase();
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
   const turnstileToken = typeof req.body?.turnstileToken === 'string' ? req.body.turnstileToken : '';
 
-  const turnstile = await verifyTurnstileToken(turnstileToken, req.ip);
+  const turnstile = await verifyTurnstileToken(turnstileToken, getClientIp(req));
   if (!turnstile.ok) {
     res.status(400).json({ error: turnstile.error || 'Cloudflare verification required.' });
     return;
@@ -425,8 +751,10 @@ apiRouter.post('/auth/register/start', authRateLimit, async (req, res) => {
     res.status(400).json({ error: 'Please provide a valid email address.' });
     return;
   }
-  if (password.length < 8) {
-    res.status(400).json({ error: 'Password must be at least 8 characters.' });
+
+  const strengthErr = validatePasswordStrength(password);
+  if (strengthErr) {
+    res.status(400).json({ error: strengthErr });
     return;
   }
 
@@ -514,9 +842,11 @@ apiRouter.post('/auth/otp/resend', authRateLimit, async (req, res) => {
   });
 });
 
-apiRouter.post('/auth/otp/verify', authRateLimit, (req, res) => {
+apiRouter.post('/auth/otp/verify', authRateLimit, async (req, res) => {
   const challengeId = cleanText(req.body?.challengeId, 64);
   const code = cleanText(req.body?.code, 12).replace(/\s+/g, '');
+  const totpCode = cleanText(req.body?.totpCode, 16).replace(/\s+/g, '');
+  const backupCode = cleanText(req.body?.backupCode, 32).toUpperCase();
 
   if (!challengeId || !/^\d{6}$/.test(code)) {
     res.status(400).json({ error: 'Enter the 6-digit verification code sent to your email.' });
@@ -588,6 +918,54 @@ apiRouter.post('/auth/otp/verify', authRateLimit, (req, res) => {
       return;
     }
 
+    // If user enabled TOTP Authenticator MFA, verify it before issuing a session token
+    if (Number(userRow.totp_enabled ?? 0) === 1 && String(userRow.totp_secret || '')) {
+      if (!totpCode && !backupCode) {
+        res.json({
+          mfaRequired: true,
+          challengeId: challenge.id,
+          email: challenge.email,
+        });
+        return;
+      }
+
+      let mfaValid = false;
+      if (totpCode && verifyTotpCode(String(userRow.totp_secret), totpCode)) {
+        mfaValid = true;
+      } else if (backupCode) {
+        const storedHashes = JSON.parse(String(userRow.mfa_backup_hashes_json || '[]')) as string[];
+        for (let i = 0; i < storedHashes.length; i += 1) {
+          if (await verifyPassword(backupCode, storedHashes[i])) {
+            mfaValid = true;
+            storedHashes.splice(i, 1);
+            db.prepare('UPDATE users SET mfa_backup_hashes_json = ? WHERE id = ?').run(
+              JSON.stringify(storedHashes),
+              String(userRow.id),
+            );
+            break;
+          }
+        }
+      }
+
+      if (!mfaValid) {
+        const nextAttempts = challenge.attempts + 1;
+        db.prepare('UPDATE email_otp_codes SET attempts = ? WHERE id = ?').run(
+          nextAttempts,
+          challenge.id,
+        );
+        recordSecurityEvent({
+          eventType: 'MFA_VERIFICATION_FAILED',
+          severity: 'warning',
+          ipAddress: getClientIp(req),
+          actorEmail: challenge.email,
+          path: '/api/auth/otp/verify',
+          details: 'Invalid Authenticator TOTP or backup code during login.',
+        });
+        res.status(401).json({ error: 'Invalid Authenticator 6-digit or backup code.' });
+        return;
+      }
+    }
+
     db.prepare('UPDATE email_otp_codes SET consumed = 1 WHERE id = ?').run(challenge.id);
     if (Number(userRow.email_verified) === 0) {
       db.prepare('UPDATE users SET email_verified = 1, verification_token = NULL, updated_at = ? WHERE id = ?').run(
@@ -601,10 +979,24 @@ apiRouter.post('/auth/otp/verify', authRateLimit, (req, res) => {
       string,
       unknown
     >;
-    const token = signSessionToken({
-      sub: String(updated.id),
-      email: String(updated.email),
-      role: String(updated.role) as UserRole,
+    const { token } = issueUserSession(
+      {
+        id: String(updated.id),
+        email: String(updated.email),
+        role: String(updated.role) as UserRole,
+      },
+      req,
+    );
+    recordSecurityEvent({
+      eventType: 'LOGIN_OTP_VERIFIED',
+      severity: 'info',
+      ipAddress: getClientIp(req),
+      actorEmail: String(updated.email),
+      path: '/api/auth/otp/verify',
+      details:
+        Number(userRow.totp_enabled ?? 0) === 1
+          ? 'Signed in with Turnstile + 6-digit email OTP + TOTP MFA.'
+          : 'Signed in with Cloudflare Turnstile + 6-digit email OTP.',
     });
     res.json({ token, user: sanitizeUser(updated) });
     return;
@@ -637,10 +1029,21 @@ apiRouter.post('/auth/otp/verify', authRateLimit, (req, res) => {
     string,
     unknown
   >;
-  const token = signSessionToken({
-    sub: userId,
-    email: challenge.email,
-    role: 'customer',
+  const { token } = issueUserSession(
+    {
+      id: userId,
+      email: challenge.email,
+      role: 'customer',
+    },
+    req,
+  );
+  recordSecurityEvent({
+    eventType: 'REGISTER_OTP_VERIFIED',
+    severity: 'info',
+    ipAddress: getClientIp(req),
+    actorEmail: challenge.email,
+    path: '/api/auth/otp/verify',
+    details: 'Account created and verified via 6-digit email OTP.',
   });
   res.status(201).json({ token, user: sanitizeUser(createdRow) });
 });
@@ -653,7 +1056,7 @@ apiRouter.get('/auth/oauth/:provider/url', authRateLimit, (req, res) => {
   }
 
   const originQuery = typeof req.query.origin === 'string' ? req.query.origin : undefined;
-  const baseUrl = resolveAppBaseUrl(originQuery);
+  const baseUrl = resolveAppBaseUrl(originQuery, req.get('host'));
   const redirectUri = `${baseUrl}/api/auth/oauth/${config.id}/callback`;
 
   if (!config.configured) {
@@ -790,10 +1193,21 @@ const oauthCallbackHandler = async (req: Request, res: Response) => {
     }
 
     const sanitized = sanitizeUser(userRow);
-    const token = signSessionToken({
-      sub: sanitized.id,
-      email: sanitized.email,
-      role: sanitized.role,
+    const { token } = issueUserSession(
+      {
+        id: sanitized.id,
+        email: sanitized.email,
+        role: sanitized.role,
+      },
+      req,
+    );
+    recordSecurityEvent({
+      eventType: 'OAUTH_LOGIN_SUCCESS',
+      severity: 'info',
+      ipAddress: getClientIp(req),
+      actorEmail: sanitized.email,
+      path: `/api/auth/oauth/${config.id}/callback`,
+      details: `Authenticated via ${config.label} OAuth.`,
     });
 
     sendPopupResult({
@@ -860,63 +1274,118 @@ apiRouter.post('/auth/verify-email', authRateLimit, (req, res) => {
 });
 
 apiRouter.post('/auth/request-reset', authRateLimit, (req, res) => {
-  const email = cleanText(req.body?.email, 254).toLowerCase();
-  if (!isValidEmail(email)) {
-    res.status(400).json({ error: 'Please provide a valid email address.' });
-    return;
-  }
-
-  const user = db.prepare('SELECT id FROM users WHERE email = ?').get(email) as { id: string } | undefined;
-  if (!user) {
-    res.json({
-      ok: true,
-      message: 'If an account matches that email, a reset token has been generated.',
-    });
-    return;
-  }
-
-  const resetToken = crypto.randomBytes(12).toString('hex');
-  db.prepare('UPDATE users SET reset_token = ?, updated_at = ? WHERE id = ?').run(
-    resetToken,
-    new Date().toISOString(),
-    user.id,
-  );
-
-  res.json({
-    ok: true,
-    message: 'Password reset token generated. Enter the token below to set a new password.',
-    resetTokenPreview: resetToken,
+  recordSecurityEvent({
+    eventType: 'LEGACY_RESET_BLOCKED',
+    severity: 'warning',
+    ipAddress: getClientIp(req),
+    actorEmail: cleanText(req.body?.email, 254).toLowerCase(),
+    path: '/api/auth/request-reset',
+    details: 'Blocked disabled token-preview password reset endpoint.',
+  });
+  res.status(410).json({
+    error: 'Legacy token-preview password reset is disabled. Use Security Settings or contact support@helzerx.cyou.',
   });
 });
 
-apiRouter.post('/auth/reset-password', authRateLimit, async (req, res) => {
-  const token = cleanText(req.body?.token, 64);
-  const newPassword = typeof req.body?.newPassword === 'string' ? req.body.newPassword : '';
-  if (!token || newPassword.length < 8) {
-    res.status(400).json({ error: 'Valid reset token and password (min 8 chars) required.' });
-    return;
-  }
-
-  const user = db.prepare('SELECT id FROM users WHERE reset_token = ?').get(token) as
-    | { id: string }
-    | undefined;
-  if (!user) {
-    res.status(404).json({ error: 'Invalid or expired reset token.' });
-    return;
-  }
-
-  const passwordHash = await hashPassword(newPassword);
-  db.prepare('UPDATE users SET password_hash = ?, reset_token = NULL, updated_at = ? WHERE id = ?').run(
-    passwordHash,
-    new Date().toISOString(),
-    user.id,
-  );
-
-  res.json({ ok: true, message: 'Password updated. You can now sign in.' });
+apiRouter.post('/auth/reset-password', authRateLimit, (_req, res) => {
+  res.status(410).json({
+    error: 'Legacy token-preview password reset is disabled. Use Security Settings or contact support@helzerx.cyou.',
+  });
 });
 
 apiRouter.get('/auth/me', requireAuth, (req: AuthedRequest, res) => {
   res.json({ user: req.authUser });
+});
+
+apiRouter.post('/auth/logout', requireAuth, (req: AuthedRequest, res) => {
+  if (req.authSessionId) {
+    db.prepare('UPDATE user_sessions SET revoked_at = ? WHERE id = ? AND user_id = ?').run(
+      new Date().toISOString(),
+      req.authSessionId,
+      req.authUser!.id,
+    );
+  }
+  res.json({ ok: true });
+});
+
+apiRouter.post('/auth/logout-all', requireAuth, (req: AuthedRequest, res) => {
+  const user = req.authUser!;
+  const nowIso = new Date().toISOString();
+  db.prepare('UPDATE user_sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL').run(
+    nowIso,
+    user.id,
+  );
+  recordSecurityEvent({
+    eventType: 'REVOKE_ALL_SESSIONS',
+    severity: 'info',
+    ipAddress: getClientIp(req),
+    actorEmail: user.email,
+    path: '/api/auth/logout-all',
+    details: 'User terminated all active sessions.',
+  });
+  res.json({ ok: true, message: 'Signed out from all active devices.' });
+});
+
+apiRouter.get('/auth/sessions', requireAuth, (req: AuthedRequest, res) => {
+  const nowIso = new Date().toISOString();
+  const rows = db
+    .prepare(
+      `SELECT id, ip_address, user_agent, created_at, last_seen_at, expires_at
+       FROM user_sessions
+       WHERE user_id = ? AND revoked_at IS NULL AND expires_at > ?
+       ORDER BY last_seen_at DESC`,
+    )
+    .all(req.authUser!.id, nowIso) as {
+    id: string;
+    ip_address: string;
+    user_agent: string;
+    created_at: string;
+    last_seen_at: string;
+    expires_at: string;
+  }[];
+
+  res.json({
+    sessions: rows.map((s) => ({
+      ...s,
+      is_current: s.id === req.authSessionId,
+    })),
+  });
+});
+
+apiRouter.delete('/auth/sessions/:id', requireAuth, (req: AuthedRequest, res) => {
+  const user = req.authUser!;
+  const targetId = cleanText(req.params.id, 64);
+  const result = db
+    .prepare('UPDATE user_sessions SET revoked_at = ? WHERE id = ? AND user_id = ? AND revoked_at IS NULL')
+    .run(new Date().toISOString(), targetId, user.id);
+
+  if (result.changes === 0) {
+    res.status(404).json({ error: 'Active session not found.' });
+    return;
+  }
+
+  recordSecurityEvent({
+    eventType: 'SESSION_REVOKED',
+    severity: 'info',
+    ipAddress: getClientIp(req),
+    actorEmail: user.email,
+    path: `/api/auth/sessions/${targetId}`,
+    details: `Revoked session ${targetId}.`,
+  });
+  res.json({ ok: true, revokedCurrent: targetId === req.authSessionId });
+});
+
+apiRouter.get('/auth/security-events', requireAuth, (req: AuthedRequest, res) => {
+  const events = db
+    .prepare(
+      `SELECT id, event_type, severity, ip_address, path, details, created_at
+       FROM security_events
+       WHERE actor_email = ?
+       ORDER BY created_at DESC
+       LIMIT 20`,
+    )
+    .all(req.authUser!.email);
+  res.json({ events });
 });
 
 apiRouter.patch('/auth/profile', requireAuth, (req: AuthedRequest, res) => {
@@ -940,8 +1409,9 @@ apiRouter.patch('/auth/password', requireAuth, async (req: AuthedRequest, res) =
   const currentPassword = typeof req.body?.currentPassword === 'string' ? req.body.currentPassword : '';
   const newPassword = typeof req.body?.newPassword === 'string' ? req.body.newPassword : '';
 
-  if (newPassword.length < 8) {
-    res.status(400).json({ error: 'New password must be at least 8 characters.' });
+  const strengthErr = validatePasswordStrength(newPassword);
+  if (strengthErr) {
+    res.status(400).json({ error: strengthErr });
     return;
   }
 
@@ -954,13 +1424,192 @@ apiRouter.patch('/auth/password', requireAuth, async (req: AuthedRequest, res) =
     return;
   }
 
+  const nowIso = new Date().toISOString();
   const nextHash = await hashPassword(newPassword);
   db.prepare('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?').run(
     nextHash,
+    nowIso,
+    user.id,
+  );
+
+  // Revoke all other active sessions whenever a password is changed
+  if (req.authSessionId) {
+    db.prepare(
+      'UPDATE user_sessions SET revoked_at = ? WHERE user_id = ? AND id != ? AND revoked_at IS NULL',
+    ).run(nowIso, user.id, req.authSessionId);
+  } else {
+    db.prepare('UPDATE user_sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL').run(
+      nowIso,
+      user.id,
+    );
+  }
+
+  recordSecurityEvent({
+    eventType: 'PASSWORD_UPDATED',
+    severity: 'info',
+    ipAddress: getClientIp(req),
+    actorEmail: user.email,
+    path: '/api/auth/password',
+    details: 'Password changed and other active sessions revoked.',
+  });
+
+  if (user.notify_security === 1) {
+    createNotification(
+      user.id,
+      'Password Updated',
+      'Your account password was changed and all other active device sessions were signed out.',
+    );
+  }
+
+  res.json({
+    ok: true,
+    message: 'Password updated and all other active sessions signed out.',
+  });
+});
+
+// TOTP Authenticator App MFA & Privacy Data Export
+apiRouter.get('/auth/mfa/status', requireAuth, (req: AuthedRequest, res) => {
+  const row = db
+    .prepare('SELECT totp_enabled, mfa_backup_hashes_json FROM users WHERE id = ?')
+    .get(req.authUser!.id) as { totp_enabled: number; mfa_backup_hashes_json: string } | undefined;
+  let backupCodesRemaining = 0;
+  try {
+    backupCodesRemaining = (JSON.parse(row?.mfa_backup_hashes_json || '[]') as string[]).length;
+  } catch {
+    backupCodesRemaining = 0;
+  }
+  res.json({
+    enabled: Number(row?.totp_enabled ?? 0) === 1,
+    backupCodesRemaining,
+  });
+});
+
+apiRouter.post('/auth/mfa/setup', requireAuth, (req: AuthedRequest, res) => {
+  const user = req.authUser!;
+  const secret = generateTotpSecret();
+  db.prepare('UPDATE users SET totp_secret = ?, totp_enabled = 0, updated_at = ? WHERE id = ?').run(
+    secret,
     new Date().toISOString(),
     user.id,
   );
-  res.json({ ok: true, message: 'Password updated successfully.' });
+  const otpauthUrl = buildTotpOtpAuthUri(user.email, secret);
+  res.json({ secret, otpauthUrl });
+});
+
+apiRouter.post('/auth/mfa/verify-enable', requireAuth, async (req: AuthedRequest, res) => {
+  const user = req.authUser!;
+  const code = cleanText(req.body?.code, 16);
+  const row = db
+    .prepare('SELECT totp_secret FROM users WHERE id = ?')
+    .get(user.id) as { totp_secret: string } | undefined;
+
+  if (!row?.totp_secret || !verifyTotpCode(row.totp_secret, code)) {
+    res.status(400).json({ error: 'Invalid 6-digit authenticator code. Ensure device time is synced.' });
+    return;
+  }
+
+  const backupCodes: string[] = [];
+  const hashes: string[] = [];
+  for (let i = 0; i < 6; i += 1) {
+    const raw = `${crypto.randomBytes(2).toString('hex').toUpperCase()}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
+    backupCodes.push(raw);
+    hashes.push(await hashPassword(raw));
+  }
+
+  db.prepare(
+    'UPDATE users SET totp_enabled = 1, mfa_backup_hashes_json = ?, updated_at = ? WHERE id = ?',
+  ).run(JSON.stringify(hashes), new Date().toISOString(), user.id);
+
+  recordSecurityEvent({
+    eventType: 'MFA_ENABLED',
+    severity: 'info',
+    ipAddress: getClientIp(req),
+    actorEmail: user.email,
+    path: '/api/auth/mfa/verify-enable',
+    details: 'User enabled RFC 6238 TOTP Authenticator MFA.',
+  });
+  createNotification(
+    user.id,
+    'Authenticator MFA Enabled',
+    'Two-factor authentication is now active on your HelzerX Technologies account.',
+  );
+
+  res.json({ ok: true, backupCodes });
+});
+
+apiRouter.post('/auth/mfa/disable', requireAuth, async (req: AuthedRequest, res) => {
+  const user = req.authUser!;
+  const currentPassword = typeof req.body?.currentPassword === 'string' ? req.body.currentPassword : '';
+  const code = cleanText(req.body?.code, 24).toUpperCase();
+
+  const row = db
+    .prepare('SELECT password_hash, totp_secret, totp_enabled, mfa_backup_hashes_json FROM users WHERE id = ?')
+    .get(user.id) as
+    | { password_hash: string; totp_secret: string; totp_enabled: number; mfa_backup_hashes_json: string }
+    | undefined;
+
+  if (!row || !(await verifyPassword(currentPassword, row.password_hash))) {
+    res.status(401).json({ error: 'Current password verification failed.' });
+    return;
+  }
+
+  if (row.totp_enabled === 1) {
+    let validCode = verifyTotpCode(row.totp_secret, code);
+    if (!validCode && code) {
+      const hashes = JSON.parse(row.mfa_backup_hashes_json || '[]') as string[];
+      for (const h of hashes) {
+        if (await verifyPassword(code, h)) {
+          validCode = true;
+          break;
+        }
+      }
+    }
+    if (!validCode) {
+      res.status(401).json({ error: 'Valid TOTP or backup code is required to disable MFA.' });
+      return;
+    }
+  }
+
+  db.prepare(
+    "UPDATE users SET totp_enabled = 0, totp_secret = '', mfa_backup_hashes_json = '[]', updated_at = ? WHERE id = ?",
+  ).run(new Date().toISOString(), user.id);
+
+  recordSecurityEvent({
+    eventType: 'MFA_DISABLED',
+    severity: 'warning',
+    ipAddress: getClientIp(req),
+    actorEmail: user.email,
+    path: '/api/auth/mfa/disable',
+    details: 'User disabled Authenticator MFA.',
+  });
+
+  res.json({ ok: true, message: 'Authenticator MFA disabled.' });
+});
+
+apiRouter.get('/auth/export-data', requireAuth, (req: AuthedRequest, res) => {
+  const user = req.authUser!;
+  const servers = db.prepare('SELECT id, name, plan_id, node_name, status, location, created_at FROM cloud_servers WHERE user_id = ?').all(user.id);
+  const orders = db.prepare('SELECT id, subtotal_usd, discount_usd, total_usd, coupon_code, status, payment_status, created_at FROM orders WHERE user_id = ?').all(user.id);
+  const projects = db.prepare('SELECT id, title, service_type, status, created_at FROM studio_projects WHERE user_id = ? OR client_email = ?').all(user.id, user.email);
+  const tickets = db.prepare('SELECT id, subject, category, priority, status, created_at FROM support_tickets WHERE user_id = ? OR email = ?').all(user.id, user.email);
+
+  recordSecurityEvent({
+    eventType: 'DATA_EXPORT_REQUESTED',
+    severity: 'info',
+    ipAddress: getClientIp(req),
+    actorEmail: user.email,
+    path: '/api/auth/export-data',
+    details: 'User downloaded sanitized account data archive.',
+  });
+
+  res.json({
+    exportedAt: new Date().toISOString(),
+    account: user,
+    servers,
+    orders,
+    projects,
+    tickets,
+  });
 });
 
 // ==================================================
@@ -1040,13 +1689,19 @@ apiRouter.get('/cloud/plans', (_req, res) => {
   res.json({ plans });
 });
 
-apiRouter.get('/cloud/pterodactyl/status', (_req, res) => {
-  res.json(getPterodactylStatus());
+apiRouter.get('/cloud/pterodactyl/status', (req, res) => {
+  const status = getPterodactylStatus();
+  const optUser = getOptionalUser(req);
+  const canSeeUrl = Boolean(optUser && isAdminPanelRole(optUser.role));
+  res.json({
+    ...status,
+    panelUrl: canSeeUrl ? status.panelUrl : null,
+  });
 });
 
 apiRouter.get('/cloud/servers', requireAuth, async (req: AuthedRequest, res) => {
   const user = req.authUser!;
-  const isAdmin = user.role === 'super_admin' || user.role === 'admin' || user.role === 'staff';
+  const isAdmin = isAdminPanelRole(user.role);
 
   const dbServers = isAdmin
     ? db.prepare(`
@@ -1081,7 +1736,7 @@ apiRouter.get('/cloud/servers', requireAuth, async (req: AuthedRequest, res) => 
     servers: dbServers,
     pterodactyl: {
       configured: pteroStatus.configured,
-      panelUrl: pteroStatus.panelUrl,
+      panelUrl: isAdmin ? pteroStatus.panelUrl : null,
       hasClientKey: pteroStatus.hasClientKey,
       requiredEnvVars: pteroStatus.requiredEnvVars,
       syncedServers: pterodactylServers,
@@ -1092,12 +1747,31 @@ apiRouter.get('/cloud/servers', requireAuth, async (req: AuthedRequest, res) => 
 
 apiRouter.post('/cloud/servers/request', requireAuth, formRateLimit, (req: AuthedRequest, res) => {
   const user = req.authUser!;
+  if (user.email_verified !== 1) {
+    res.status(403).json({ error: 'Verify your email address before requesting cloud infrastructure.' });
+    return;
+  }
+
   const planId = cleanText(req.body?.planId, 64);
   const serverName = cleanText(req.body?.name, 60);
 
   if (!planId || serverName.length < 3) {
     res.status(400).json({ error: 'Valid plan and server name (min 3 chars) are required.' });
     return;
+  }
+
+  if (!isAdminPanelRole(user.role)) {
+    const pendingCount = (
+      db
+        .prepare("SELECT COUNT(*) as c FROM cloud_servers WHERE user_id = ? AND status = 'pending_provisioning'")
+        .get(user.id) as { c: number }
+    ).c;
+    if (pendingCount >= 5) {
+      res.status(429).json({
+        error: 'Pending server request limit (5) reached. Wait for provisioning before submitting more.',
+      });
+      return;
+    }
   }
 
   const plan = db.prepare('SELECT * FROM hosting_plans WHERE id = ? AND available = 1').get(planId) as
@@ -1120,22 +1794,38 @@ apiRouter.post('/cloud/servers/request', requireAuth, formRateLimit, (req: Authe
     'Server provisioning request submitted',
     `Server "${serverName}" (${plan.name}) is queued for authorized provisioning.`,
   );
+  recordSecurityEvent({
+    eventType: 'CLOUD_SERVER_REQUESTED',
+    severity: 'info',
+    ipAddress: getClientIp(req),
+    actorEmail: user.email,
+    path: '/api/cloud/servers/request',
+    details: `Requested ${plan.name} (${serverName}).`,
+  });
 
   const created = db.prepare('SELECT * FROM cloud_servers WHERE id = ?').get(serverId);
   res.status(201).json({ server: created });
 });
 
-apiRouter.get('/cloud/servers/:id/resources', requireAuth, async (req: AuthedRequest, res) => {
+apiRouter.get('/cloud/servers/:id/resources', requireAuth, formRateLimit, async (req: AuthedRequest, res) => {
   const user = req.authUser!;
   const srv = db.prepare('SELECT * FROM cloud_servers WHERE id = ?').get(req.params.id) as
-    | { id: string; user_id: string; pterodactyl_identifier: string }
+    | { id: string; user_id: string; pterodactyl_identifier: string; status: string }
     | undefined;
   if (!srv) {
     res.status(404).json({ error: 'Server record not found.' });
     return;
   }
-  const isAdmin = user.role === 'super_admin' || user.role === 'admin' || user.role === 'staff';
+  const isAdmin = isAdminPanelRole(user.role);
   if (srv.user_id !== user.id && !isAdmin) {
+    recordSecurityEvent({
+      eventType: 'UNAUTHORIZED_CLOUD_ACCESS',
+      severity: 'high',
+      ipAddress: getClientIp(req),
+      actorEmail: user.email,
+      path: `/api/cloud/servers/${srv.id}/resources`,
+      details: `Blocked attempt to read resources for non-owned server ${srv.id}.`,
+    });
     res.status(403).json({ error: 'Access denied.' });
     return;
   }
@@ -1154,7 +1844,7 @@ apiRouter.get('/cloud/servers/:id/resources', requireAuth, async (req: AuthedReq
   res.json({ resources: result.resources });
 });
 
-apiRouter.post('/cloud/servers/:id/power', requireAuth, async (req: AuthedRequest, res) => {
+apiRouter.post('/cloud/servers/:id/power', requireAuth, formRateLimit, async (req: AuthedRequest, res) => {
   const user = req.authUser!;
   const signal = req.body?.signal;
   if (!['start', 'stop', 'restart', 'kill'].includes(signal)) {
@@ -1163,15 +1853,27 @@ apiRouter.post('/cloud/servers/:id/power', requireAuth, async (req: AuthedReques
   }
 
   const srv = db.prepare('SELECT * FROM cloud_servers WHERE id = ?').get(req.params.id) as
-    | { id: string; user_id: string; pterodactyl_identifier: string }
+    | { id: string; user_id: string; pterodactyl_identifier: string; status: string }
     | undefined;
   if (!srv) {
     res.status(404).json({ error: 'Server record not found.' });
     return;
   }
-  const isAdmin = user.role === 'super_admin' || user.role === 'admin' || user.role === 'staff';
+  const isAdmin = isAdminPanelRole(user.role);
   if (srv.user_id !== user.id && !isAdmin) {
+    recordSecurityEvent({
+      eventType: 'UNAUTHORIZED_CLOUD_ACCESS',
+      severity: 'high',
+      ipAddress: getClientIp(req),
+      actorEmail: user.email,
+      path: `/api/cloud/servers/${srv.id}/power`,
+      details: `Blocked power signal (${signal}) on non-owned server ${srv.id}.`,
+    });
     res.status(403).json({ error: 'Access denied.' });
+    return;
+  }
+  if (!isAdmin && srv.status !== 'active') {
+    res.status(403).json({ error: `Server power actions disabled while status is "${srv.status}".` });
     return;
   }
   if (!srv.pterodactyl_identifier) {
@@ -1259,6 +1961,21 @@ apiRouter.post('/shop/orders', requireAuth, formRateLimit, (req: AuthedRequest, 
   const itemsInput = Array.isArray(req.body?.items) ? req.body.items : [];
   const shippingAddress = cleanText(req.body?.shippingAddress, 300);
   const couponCode = cleanText(req.body?.couponCode, 40).toUpperCase();
+  const rawIdempKey = cleanText(
+    req.headers['idempotency-key'] || req.headers['x-idempotency-key'] || '',
+    100,
+  );
+  const idempDbKey = rawIdempKey ? `${user.id}:/shop/orders:${rawIdempKey}` : '';
+
+  if (idempDbKey) {
+    const existing = db
+      .prepare('SELECT status_code, response_json FROM idempotency_keys WHERE key = ?')
+      .get(idempDbKey) as { status_code: number; response_json: string } | undefined;
+    if (existing) {
+      res.status(existing.status_code).json(JSON.parse(existing.response_json));
+      return;
+    }
+  }
 
   if (itemsInput.length === 0 || itemsInput.length > 25) {
     res.status(400).json({ error: 'Order must contain between 1 and 25 line items.' });
@@ -1299,13 +2016,16 @@ apiRouter.post('/shop/orders', requireAuth, formRateLimit, (req: AuthedRequest, 
         res.status(404).json({ error: `Product ${productId} is no longer available.` });
         return;
       }
-      if (product.stock < qty) {
+
+      const stockRes = db
+        .prepare('UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?')
+        .run(qty, product.id, qty);
+      if (stockRes.changes === 0) {
         db.exec('ROLLBACK;');
         res.status(409).json({ error: `Insufficient stock for ${product.name}.` });
         return;
       }
 
-      db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?').run(qty, product.id);
       subtotal += product.price_usd * qty;
       resolvedItems.push({
         productId: product.id,
@@ -1367,17 +2087,90 @@ apiRouter.post('/shop/orders', requireAuth, formRateLimit, (req: AuthedRequest, 
     `Order ${orderId} created`,
     `Invoice ${invoiceNumber} issued (${stripeConfigured ? 'ready for Stripe settlement' : 'awaiting payment provider configuration'}).`,
   );
+  recordSecurityEvent({
+    eventType: 'ORDER_CREATED',
+    severity: 'info',
+    ipAddress: getClientIp(req),
+    actorEmail: user.email,
+    path: '/api/shop/orders',
+    details: `Order ${orderId} ($${Math.max(0, Math.round(Number(req.body?.items?.length || 0)))} items).`,
+  });
 
   const createdOrder = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
   const createdInvoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(invoiceId);
-  res.status(201).json({
+  const responseBody = {
     order: createdOrder,
     invoice: createdInvoice,
     stripeConfigured,
     paymentNotice: stripeConfigured
       ? 'Order created and awaiting Stripe payment confirmation.'
       : 'Order and invoice saved with status pending_payment. Configure STRIPE_SECRET_KEY on the server to process live card payments.',
-  });
+  };
+
+  if (idempDbKey) {
+    try {
+      db.prepare(
+        'INSERT OR IGNORE INTO idempotency_keys (key, user_id, route, status_code, response_json, created_at) VALUES (?, ?, ?, 201, ?, ?)',
+      ).run(idempDbKey, user.id, '/shop/orders', JSON.stringify(responseBody), now);
+    } catch {
+      // ignore
+    }
+  }
+
+  res.status(201).json(responseBody);
+});
+
+apiRouter.post('/shop/webhooks/stripe', (req, res) => {
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim() || '';
+  if (!webhookSecret) {
+    res.status(503).json({ error: 'STRIPE_WEBHOOK_SECRET is not configured on the server.' });
+    return;
+  }
+
+  const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
+  const sigHeader = String(req.headers['stripe-signature'] || '');
+  if (!rawBody || !verifyStripeWebhookSignature(rawBody, sigHeader, webhookSecret)) {
+    recordSecurityEvent({
+      eventType: 'STRIPE_WEBHOOK_INVALID',
+      severity: 'high',
+      ipAddress: getClientIp(req),
+      path: '/api/shop/webhooks/stripe',
+      details: 'Rejected webhook due to invalid HMAC signature or expired timestamp.',
+    });
+    res.status(400).json({ error: 'Invalid webhook signature.' });
+    return;
+  }
+
+  const event = req.body as {
+    id?: string;
+    type?: string;
+    data?: { object?: { metadata?: { order_id?: string }; amount_total?: number } };
+  };
+  const orderId = cleanText(event?.data?.object?.metadata?.order_id || '', 64);
+
+  if (event?.type === 'checkout.session.completed' && orderId) {
+    const order = db.prepare('SELECT id, status FROM orders WHERE id = ?').get(orderId) as
+      | { id: string; status: string }
+      | undefined;
+    if (order && order.status === 'pending_payment') {
+      db.prepare("UPDATE orders SET status = 'paid', payment_status = 'paid', payment_provider = 'stripe' WHERE id = ?").run(
+        order.id,
+      );
+      db.prepare("UPDATE invoices SET status = 'paid' WHERE order_id = ?").run(order.id);
+      recordSecurityEvent({
+        eventType: 'PAYMENT_VERIFIED_WEBHOOK',
+        severity: 'info',
+        ipAddress: getClientIp(req),
+        path: '/api/shop/webhooks/stripe',
+        details: `Verified Stripe settlement for order ${order.id}.`,
+      });
+    }
+  } else if (event?.type === 'charge.refunded' && orderId) {
+    db.prepare("UPDATE orders SET status = 'refunded', payment_status = 'refunded' WHERE id = ?").run(orderId);
+    db.prepare("UPDATE invoices SET status = 'refunded' WHERE order_id = ?").run(orderId);
+  }
+
+  res.json({ received: true });
 });
 
 // ==================================================
@@ -1386,7 +2179,7 @@ apiRouter.post('/shop/orders', requireAuth, formRateLimit, (req: AuthedRequest, 
 
 apiRouter.get('/studio/projects', requireAuth, (req: AuthedRequest, res) => {
   const user = req.authUser!;
-  const isAdmin = user.role === 'super_admin' || user.role === 'admin' || user.role === 'staff';
+  const isAdmin = isAdminPanelRole(user.role);
   const projects = isAdmin
     ? db.prepare('SELECT * FROM studio_projects ORDER BY updated_at DESC').all()
     : db
@@ -1415,7 +2208,13 @@ apiRouter.post('/studio/projects', formRateLimit, (req, res) => {
   const budgetRange = cleanText(req.body?.budgetRange, 60) || 'Custom Quote';
   const timeline = cleanText(req.body?.timeline, 60) || 'Flexible';
   const brief = cleanText(req.body?.brief, 2000);
-  const attachmentName = sanitizeFileName(req.body?.attachmentName);
+  const attachmentCheck = validateAttachmentFile(req.body?.attachmentName, req.body?.attachmentMime);
+
+  if (!attachmentCheck.ok) {
+    res.status(400).json({ error: attachmentCheck.error });
+    return;
+  }
+  const attachmentName = attachmentCheck.fileName;
 
   if (clientName.length < 2 || !isValidEmail(clientEmail) || !serviceType || title.length < 3 || brief.length < 15) {
     res.status(400).json({
@@ -1461,7 +2260,7 @@ apiRouter.post('/studio/projects/:id/messages', requireAuth, formRateLimit, (req
     return;
   }
 
-  const isAdmin = user.role === 'super_admin' || user.role === 'admin' || user.role === 'staff';
+  const isAdmin = isAdminPanelRole(user.role);
   if (!isAdmin && project.user_id !== user.id && project.client_email !== user.email) {
     res.status(403).json({ error: 'Access denied.' });
     return;
@@ -1583,7 +2382,13 @@ apiRouter.post('/careers/apply', formRateLimit, (req, res) => {
   const email = (cleanText(req.body?.email, 254) || optUser?.email || '').toLowerCase();
   const portfolioUrl = cleanText(req.body?.portfolioUrl, 250);
   const coverNote = cleanText(req.body?.coverNote, 1500);
-  const attachmentName = sanitizeFileName(req.body?.attachmentName);
+  const attachmentCheck = validateAttachmentFile(req.body?.attachmentName, req.body?.attachmentMime);
+
+  if (!attachmentCheck.ok) {
+    res.status(400).json({ error: attachmentCheck.error });
+    return;
+  }
+  const attachmentName = attachmentCheck.fileName;
 
   if (!pos || applicantName.length < 2 || !isValidEmail(email) || coverNote.length < 15) {
     res.status(400).json({ error: 'Please select a role and provide valid name, email, and cover note.' });
@@ -1748,7 +2553,7 @@ apiRouter.get('/blog/posts/:slug', (req, res) => {
 
 apiRouter.get('/support/tickets', requireAuth, (req: AuthedRequest, res) => {
   const user = req.authUser!;
-  const isAdmin = user.role === 'super_admin' || user.role === 'admin' || user.role === 'staff';
+  const isAdmin = isAdminPanelRole(user.role);
   const tickets = isAdmin
     ? db.prepare('SELECT * FROM support_tickets ORDER BY updated_at DESC').all()
     : db
@@ -1777,7 +2582,13 @@ apiRouter.post('/support/tickets', formRateLimit, (req, res) => {
     : 'normal';
   const subject = cleanText(req.body?.subject, 140);
   const body = cleanText(req.body?.message, 2000);
-  const attachmentName = sanitizeFileName(req.body?.attachmentName);
+  const attachmentCheck = validateAttachmentFile(req.body?.attachmentName, req.body?.attachmentMime);
+
+  if (!attachmentCheck.ok) {
+    res.status(400).json({ error: attachmentCheck.error });
+    return;
+  }
+  const attachmentName = attachmentCheck.fileName;
 
   if (name.length < 2 || !isValidEmail(email) || subject.length < 4 || body.length < 10) {
     res.status(400).json({ error: 'Name, valid email, subject, and message (min 10 chars) required.' });
@@ -1803,7 +2614,12 @@ apiRouter.post('/support/tickets', formRateLimit, (req, res) => {
 apiRouter.post('/support/tickets/:id/replies', requireAuth, formRateLimit, (req: AuthedRequest, res) => {
   const user = req.authUser!;
   const body = cleanText(req.body?.message, 1500);
-  const attachmentName = sanitizeFileName(req.body?.attachmentName);
+  const attachmentCheck = validateAttachmentFile(req.body?.attachmentName, req.body?.attachmentMime);
+  if (!attachmentCheck.ok) {
+    res.status(400).json({ error: attachmentCheck.error });
+    return;
+  }
+  const attachmentName = attachmentCheck.fileName;
   if (body.length < 2) {
     res.status(400).json({ error: 'Reply message cannot be empty.' });
     return;
@@ -1816,7 +2632,7 @@ apiRouter.post('/support/tickets/:id/replies', requireAuth, formRateLimit, (req:
     res.status(404).json({ error: 'Support ticket not found.' });
     return;
   }
-  const isAdmin = user.role === 'super_admin' || user.role === 'admin' || user.role === 'staff';
+  const isAdmin = isAdminPanelRole(user.role);
   if (!isAdmin && ticket.user_id !== user.id && ticket.email !== user.email) {
     res.status(403).json({ error: 'Access denied.' });
     return;
@@ -1939,9 +2755,9 @@ apiRouter.post('/dashboard/notifications/read-all', requireAuth, (req: AuthedReq
 // ADMIN MANAGEMENT API (RBAC PROTECTED)
 // ==================================================
 
-const adminGuard = [requireAuth, requireRole(['super_admin', 'admin', 'staff'])] as const;
+const adminGuard = [requireAdminIpAllowlist, requireAuth, requireRole(ADMIN_ROLES)] as const;
 
-apiRouter.get('/admin/overview', ...adminGuard, (_req, res) => {
+apiRouter.get('/admin/overview', ...adminGuard, requirePermission('overview:read'), (_req, res) => {
   const totalUsers = (db.prepare('SELECT COUNT(*) as c FROM users').get() as { c: number }).c;
   const activeUsers = (
     db.prepare("SELECT COUNT(*) as c FROM users WHERE status = 'active'").get() as { c: number }
@@ -1965,7 +2781,9 @@ apiRouter.get('/admin/overview', ...adminGuard, (_req, res) => {
   ).c;
 
   const users = db
-    .prepare('SELECT id, name, email, role, status, email_verified, created_at FROM users ORDER BY created_at DESC')
+    .prepare(
+      'SELECT id, name, email, role, status, email_verified, totp_enabled, last_login_at, last_login_ip, created_at FROM users ORDER BY created_at DESC',
+    )
     .all();
   const plans = db.prepare('SELECT * FROM hosting_plans ORDER BY sort_order ASC').all();
   const servers = db.prepare('SELECT * FROM cloud_servers ORDER BY created_at DESC').all();
@@ -1984,7 +2802,21 @@ apiRouter.get('/admin/overview', ...adminGuard, (_req, res) => {
   const announcements = db.prepare('SELECT * FROM announcements ORDER BY created_at DESC').all();
   const faqs = db.prepare('SELECT * FROM faqs ORDER BY sort_order ASC').all();
   const inquiries = db.prepare('SELECT * FROM contact_inquiries ORDER BY created_at DESC').all();
+  const nowIso = new Date().toISOString();
   const auditLogs = db.prepare('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 60').all();
+  const securityEvents = db
+    .prepare('SELECT * FROM security_events ORDER BY created_at DESC LIMIT 60')
+    .all();
+  const activeSessionsCount = (
+    db
+      .prepare('SELECT COUNT(*) as c FROM user_sessions WHERE revoked_at IS NULL AND expires_at > ?')
+      .get(nowIso) as { c: number }
+  ).c;
+  const lockedAccountsCount = (
+    db
+      .prepare('SELECT COUNT(*) as c FROM auth_lockouts WHERE locked_until IS NOT NULL AND locked_until > ?')
+      .get(nowIso) as { c: number }
+  ).c;
 
   res.json({
     metrics: {
@@ -1995,6 +2827,8 @@ apiRouter.get('/admin/overview', ...adminGuard, (_req, res) => {
       activeServers,
       pendingProjects,
       openTickets,
+      activeSessionsCount,
+      lockedAccountsCount,
     },
     users,
     plans,
@@ -2013,11 +2847,294 @@ apiRouter.get('/admin/overview', ...adminGuard, (_req, res) => {
     faqs,
     inquiries,
     auditLogs,
+    securityEvents,
     pterodactyl: getPterodactylStatus(),
   });
 });
 
-apiRouter.patch('/admin/users/:id', ...adminGuard, (req: AuthedRequest, res) => {
+// ==================================================
+// HELZERX SECURITY CENTER (ADMIN RBAC PROTECTED)
+// ==================================================
+
+apiRouter.get('/admin/security/overview', ...adminGuard, requirePermission('security:read'), (req, res) => {
+  const nowIso = new Date().toISOString();
+  const controls = getSecurityControls();
+  const counters = getRuntimeSecurityCounters();
+
+  const totalSecurityEvents = (
+    db.prepare('SELECT COUNT(*) as c FROM security_events').get() as { c: number }
+  ).c;
+  const highSeverityEvents = (
+    db.prepare("SELECT COUNT(*) as c FROM security_events WHERE severity = 'high'").get() as {
+      c: number;
+    }
+  ).c;
+  const activeSessions = db
+    .prepare(
+      `SELECT us.id, us.user_id, us.ip_address, us.user_agent, us.created_at, us.last_seen_at, us.expires_at,
+              u.email as user_email, u.role as user_role
+       FROM user_sessions us
+       JOIN users u ON us.user_id = u.id
+       WHERE us.revoked_at IS NULL AND us.expires_at > ?
+       ORDER BY us.last_seen_at DESC
+       LIMIT 50`,
+    )
+    .all(nowIso);
+  const lockedAccounts = db
+    .prepare(
+      'SELECT email, failed_attempts, locked_until, last_failed_at FROM auth_lockouts WHERE locked_until IS NOT NULL AND locked_until > ?',
+    )
+    .all(nowIso);
+  const mfaStats = db
+    .prepare(
+      'SELECT COUNT(*) as total, SUM(CASE WHEN totp_enabled = 1 THEN 1 ELSE 0 END) as enabled FROM users',
+    )
+    .get() as { total: number; enabled: number | null };
+
+  const securityEvents = db
+    .prepare('SELECT * FROM security_events ORDER BY created_at DESC LIMIT 80')
+    .all();
+  const auditLogs = db.prepare('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 50').all();
+
+  let journalMode = 'wal';
+  try {
+    const jm = db.prepare('PRAGMA journal_mode;').get() as { journal_mode?: string };
+    journalMode = jm?.journal_mode || 'wal';
+  } catch {
+    // ignore
+  }
+
+  const backupDir = path.resolve(process.cwd(), 'data', 'backups');
+  let backups: { name: string; sizeBytes: number; createdAt: string }[] = [];
+  if (fs.existsSync(backupDir)) {
+    backups = fs
+      .readdirSync(backupDir)
+      .filter((f) => f.endsWith('.hxbk'))
+      .map((f) => {
+        const stat = fs.statSync(path.join(backupDir, f));
+        return { name: f, sizeBytes: stat.size, createdAt: stat.mtime.toISOString() };
+      })
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 10);
+  }
+
+  const cfRayDetected = Boolean(req.headers['cf-ray'] || req.headers['cf-connecting-ip']);
+  const turnstileReady = Boolean(
+    process.env.VITE_TURNSTILE_SITE_KEY?.trim() && process.env.TURNSTILE_SECRET_KEY?.trim(),
+  );
+
+  res.json({
+    overview: {
+      status:
+        controls.maintenanceLockdown || controls.emergencySecurityMode
+          ? 'EMERGENCY'
+          : highSeverityEvents > 0
+            ? 'ELEVATED'
+            : 'HARDENED',
+      highSeverityEvents,
+      totalSecurityEvents,
+      activeSessionsCount: activeSessions.length,
+      lockedAccountsCount: lockedAccounts.length,
+      mfaEnabledUsers: Number(mfaStats?.enabled ?? 0),
+      totalUsers: Number(mfaStats?.total ?? 0),
+    },
+    websiteProtection: {
+      cspActive: true,
+      hstsReady: true,
+      nosniffActive: true,
+      antiAbuseActive: true,
+      turnstileConfigured: turnstileReady,
+      cloudflareProxyDetected: cfRayDetected,
+      devtoolsDeterrence: controls.devtoolsDeterrence,
+    },
+    apiSecurity: counters,
+    infrastructure: {
+      nodeVersion: process.version,
+      nodeEnv: process.env.NODE_ENV || 'development',
+      dbJournalMode: journalMode,
+      foreignKeysEnforced: true,
+      pterodactylIsolated: getPterodactylStatus().configured,
+      backups,
+    },
+    controls,
+    activeSessions,
+    lockedAccounts,
+    securityEvents,
+    auditLogs,
+  });
+});
+
+apiRouter.patch(
+  '/admin/security/controls',
+  ...adminGuard,
+  requirePermission('security:emergency'),
+  (req: AuthedRequest, res) => {
+    const actor = req.authUser!;
+    if (req.body?.confirmAction !== true) {
+      res.status(400).json({ error: 'Explicit confirmation (confirmAction) is required for emergency controls.' });
+      return;
+    }
+
+    const current = getSecurityControls();
+    const next: SecurityControlsState = {
+      maintenanceLockdown:
+        typeof req.body?.maintenanceLockdown === 'boolean'
+          ? req.body.maintenanceLockdown
+          : current.maintenanceLockdown,
+      loginRestriction:
+        typeof req.body?.loginRestriction === 'boolean'
+          ? req.body.loginRestriction
+          : current.loginRestriction,
+      apiEmergencyReadOnly:
+        typeof req.body?.apiEmergencyReadOnly === 'boolean'
+          ? req.body.apiEmergencyReadOnly
+          : current.apiEmergencyReadOnly,
+      emergencySecurityMode:
+        typeof req.body?.emergencySecurityMode === 'boolean'
+          ? req.body.emergencySecurityMode
+          : current.emergencySecurityMode,
+      requireAdminMfa:
+        typeof req.body?.requireAdminMfa === 'boolean'
+          ? req.body.requireAdminMfa
+          : current.requireAdminMfa,
+      devtoolsDeterrence:
+        typeof req.body?.devtoolsDeterrence === 'boolean'
+          ? req.body.devtoolsDeterrence
+          : current.devtoolsDeterrence,
+    };
+
+    db.prepare(`
+      INSERT INTO site_settings (key, value_json, updated_at) VALUES ('security_controls', ?, ?)
+      ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at
+    `).run(JSON.stringify(next), new Date().toISOString());
+    setEmergencySecurityModeState(next.emergencySecurityMode);
+
+    const summary = `lockdown=${next.maintenanceLockdown}, loginRestriction=${next.loginRestriction}, readOnly=${next.apiEmergencyReadOnly}, emergencyMode=${next.emergencySecurityMode}`;
+    recordSecurityEvent({
+      eventType: 'EMERGENCY_CONTROLS_UPDATED',
+      severity: 'high',
+      ipAddress: getClientIp(req),
+      actorEmail: actor.email,
+      path: '/api/admin/security/controls',
+      details: summary,
+    });
+    logAudit(actor.id, actor.email, 'UPDATE_SECURITY_CONTROLS', 'site_settings', 'security_controls', summary);
+    res.json({ ok: true, controls: next });
+  },
+);
+
+apiRouter.post(
+  '/admin/security/unlock-account',
+  ...adminGuard,
+  requirePermission('security:emergency'),
+  (req: AuthedRequest, res) => {
+    const actor = req.authUser!;
+    const email = cleanText(req.body?.email, 254).toLowerCase();
+    if (!email) {
+      res.status(400).json({ error: 'Email is required.' });
+      return;
+    }
+    db.prepare('DELETE FROM auth_lockouts WHERE email = ?').run(email);
+    recordSecurityEvent({
+      eventType: 'ACCOUNT_UNLOCKED_ADMIN',
+      severity: 'info',
+      ipAddress: getClientIp(req),
+      actorEmail: email,
+      path: '/api/admin/security/unlock-account',
+      details: `Lockout cleared by ${actor.email}.`,
+    });
+    logAudit(actor.id, actor.email, 'UNLOCK_ACCOUNT', 'auth_lockouts', email);
+    res.json({ ok: true, message: `Cleared brute-force lockout for ${email}.` });
+  },
+);
+
+apiRouter.post(
+  '/admin/security/revoke-all-sessions',
+  ...adminGuard,
+  requirePermission('security:emergency'),
+  (req: AuthedRequest, res) => {
+    const actor = req.authUser!;
+    if (req.body?.confirmAction !== true) {
+      res.status(400).json({ error: 'Explicit confirmation required to revoke sessions.' });
+      return;
+    }
+    const nowIso = new Date().toISOString();
+    const resDb = req.authSessionId
+      ? db
+          .prepare('UPDATE user_sessions SET revoked_at = ? WHERE revoked_at IS NULL AND id != ?')
+          .run(nowIso, req.authSessionId)
+      : db.prepare('UPDATE user_sessions SET revoked_at = ? WHERE revoked_at IS NULL').run(nowIso);
+
+    recordSecurityEvent({
+      eventType: 'GLOBAL_SESSIONS_REVOKED',
+      severity: 'high',
+      ipAddress: getClientIp(req),
+      actorEmail: actor.email,
+      path: '/api/admin/security/revoke-all-sessions',
+      details: `Revoked ${resDb.changes} active session(s) across the platform.`,
+    });
+    logAudit(actor.id, actor.email, 'GLOBAL_SESSION_REVOCATION', 'user_sessions', 'all', `count=${resDb.changes}`);
+    res.json({ ok: true, revokedCount: resDb.changes });
+  },
+);
+
+apiRouter.post(
+  '/admin/security/backup',
+  ...adminGuard,
+  requirePermission('security:emergency'),
+  (req: AuthedRequest, res) => {
+    const actor = req.authUser!;
+    const dbPath = path.resolve(process.cwd(), 'data', 'helzerx.db');
+    const backupDir = path.resolve(process.cwd(), 'data', 'backups');
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
+    }
+
+    const integrityRow = db.prepare('PRAGMA integrity_check;').get() as {
+      integrity_check?: string;
+    };
+    const integrityOk = integrityRow?.integrity_check === 'ok';
+
+    // Flush WAL into main DB before snapshotting
+    try {
+      db.exec('PRAGMA wal_checkpoint(TRUNCATE);');
+    } catch {
+      // ignore if busy
+    }
+
+    const plainBuf = fs.readFileSync(dbPath);
+    const originalHash = crypto.createHash('sha256').update(plainBuf).digest('hex');
+    const encryptedBuf = encryptBackupBuffer(plainBuf);
+    const decryptedTest = decryptAndVerifyBackupBuffer(encryptedBuf);
+    const verifiedHash = crypto.createHash('sha256').update(decryptedTest).digest('hex');
+    const verifiedDecryption = originalHash === verifiedHash;
+
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const fileName = `helzerx-backup-${stamp}.hxbk`;
+    fs.writeFileSync(path.join(backupDir, fileName), encryptedBuf);
+
+    recordSecurityEvent({
+      eventType: 'ENCRYPTED_BACKUP_VERIFIED',
+      severity: 'info',
+      ipAddress: getClientIp(req),
+      actorEmail: actor.email,
+      path: '/api/admin/security/backup',
+      details: `Backup ${fileName} created (integrity=${integrityOk}, verified=${verifiedDecryption}).`,
+    });
+    logAudit(actor.id, actor.email, 'CREATE_ENCRYPTED_BACKUP', 'database', fileName, `sha256=${originalHash.slice(0, 16)}`);
+
+    res.json({
+      ok: true,
+      fileName,
+      sizeBytes: encryptedBuf.length,
+      sha256: originalHash,
+      integrityOk,
+      verifiedDecryption,
+    });
+  },
+);
+
+apiRouter.patch('/admin/users/:id', ...adminGuard, requirePermission('users:write'), (req: AuthedRequest, res) => {
   const actor = req.authUser!;
   const target = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id) as
     | { id: string; email: string; role: UserRole; status: string }
@@ -2030,11 +3147,11 @@ apiRouter.patch('/admin/users/:id', ...adminGuard, (req: AuthedRequest, res) => 
   const nextRole = req.body?.role;
   const nextStatus = req.body?.status;
 
-  if (nextRole && !['super_admin', 'admin', 'staff', 'partner', 'customer'].includes(nextRole)) {
+  if (nextRole && !ALL_USER_ROLES.includes(nextRole)) {
     res.status(400).json({ error: 'Invalid role.' });
     return;
   }
-  if (nextRole && nextRole !== target.role && actor.role !== 'super_admin') {
+  if (nextRole && nextRole !== target.role && !hasPermission(actor.role, 'roles:write')) {
     res.status(403).json({ error: 'Only a Super Admin can modify account roles.' });
     return;
   }
@@ -2043,18 +3160,78 @@ apiRouter.patch('/admin/users/:id', ...adminGuard, (req: AuthedRequest, res) => 
     return;
   }
 
+  const resolvedRole = (nextRole ?? target.role) as UserRole;
+  const resolvedStatus = nextStatus ?? target.status;
+
+  if (target.role === 'super_admin' && (resolvedRole !== 'super_admin' || resolvedStatus !== 'active')) {
+    const activeSuperAdmins = (
+      db
+        .prepare("SELECT COUNT(*) as c FROM users WHERE role = 'super_admin' AND status = 'active'")
+        .get() as { c: number }
+    ).c;
+    if (activeSuperAdmins <= 1) {
+      res.status(409).json({
+        error: 'Cannot suspend or demote the last active Super Admin account.',
+      });
+      return;
+    }
+  }
+
+  const nowIso = new Date().toISOString();
   db.prepare('UPDATE users SET role = ?, status = ?, updated_at = ? WHERE id = ?').run(
-    nextRole ?? target.role,
-    nextStatus ?? target.status,
-    new Date().toISOString(),
+    resolvedRole,
+    resolvedStatus,
+    nowIso,
     target.id,
   );
 
-  logAudit(actor.id, actor.email, 'UPDATE_USER', 'users', target.id, `role=${nextRole ?? target.role}, status=${nextStatus ?? target.status}`);
+  // Immediately revoke active sessions when role changes or user is suspended
+  if (resolvedStatus === 'suspended' || resolvedRole !== target.role) {
+    db.prepare('UPDATE user_sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL').run(
+      nowIso,
+      target.id,
+    );
+    recordSecurityEvent({
+      eventType: 'ADMIN_USER_SECURITY_UPDATE',
+      severity: 'warning',
+      ipAddress: getClientIp(req),
+      actorEmail: target.email,
+      path: `/api/admin/users/${target.id}`,
+      details: `Updated by ${actor.email} (role=${resolvedRole}, status=${resolvedStatus}); sessions revoked.`,
+    });
+  }
+
+  logAudit(actor.id, actor.email, 'UPDATE_USER', 'users', target.id, `role=${resolvedRole}, status=${resolvedStatus}`);
   res.json({ ok: true });
 });
 
-apiRouter.post('/admin/cloud/plans', ...adminGuard, (req: AuthedRequest, res) => {
+apiRouter.post('/admin/users/:id/revoke-sessions', ...adminGuard, requirePermission('users:write'), (req: AuthedRequest, res) => {
+  const actor = req.authUser!;
+  const target = db.prepare('SELECT id, email FROM users WHERE id = ?').get(req.params.id) as
+    | { id: string; email: string }
+    | undefined;
+  if (!target) {
+    res.status(404).json({ error: 'User not found.' });
+    return;
+  }
+
+  db.prepare('UPDATE user_sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL').run(
+    new Date().toISOString(),
+    target.id,
+  );
+  recordSecurityEvent({
+    eventType: 'ADMIN_SESSIONS_REVOKED',
+    severity: 'warning',
+    ipAddress: getClientIp(req),
+    actorEmail: target.email,
+    path: `/api/admin/users/${target.id}/revoke-sessions`,
+    details: `Admin ${actor.email} revoked all active sessions.`,
+  });
+  logAudit(actor.id, actor.email, 'REVOKE_USER_SESSIONS', 'users', target.id, target.email);
+  res.json({ ok: true, message: `All active sessions revoked for ${target.email}.` });
+});
+
+apiRouter.post('/admin/cloud/plans', ...adminGuard, requirePermission('cloud:write'), (req: AuthedRequest, res) => {
   const name = cleanText(req.body?.name, 80);
   const category = cleanText(req.body?.category, 40) || 'Minecraft';
   const cpu = cleanText(req.body?.cpu, 60);
@@ -2080,13 +3257,13 @@ apiRouter.post('/admin/cloud/plans', ...adminGuard, (req: AuthedRequest, res) =>
   res.status(201).json({ id });
 });
 
-apiRouter.delete('/admin/cloud/plans/:id', ...adminGuard, (req: AuthedRequest, res) => {
+apiRouter.delete('/admin/cloud/plans/:id', ...adminGuard, requirePermission('cloud:write'), (req: AuthedRequest, res) => {
   db.prepare('DELETE FROM hosting_plans WHERE id = ?').run(req.params.id);
   logAudit(req.authUser!.id, req.authUser!.email, 'DELETE_PLAN', 'hosting_plans', req.params.id);
   res.json({ ok: true });
 });
 
-apiRouter.patch('/admin/cloud/servers/:id', ...adminGuard, (req: AuthedRequest, res) => {
+apiRouter.patch('/admin/cloud/servers/:id', ...adminGuard, requirePermission('cloud:write'), (req: AuthedRequest, res) => {
   const status = cleanText(req.body?.status, 40);
   const pterodactylIdentifier = cleanText(req.body?.pterodactyl_identifier, 40);
   const nodeName = cleanText(req.body?.node_name, 60);
@@ -2101,7 +3278,7 @@ apiRouter.patch('/admin/cloud/servers/:id', ...adminGuard, (req: AuthedRequest, 
   res.json({ ok: true });
 });
 
-apiRouter.patch('/admin/studio/projects/:id', ...adminGuard, (req: AuthedRequest, res) => {
+apiRouter.patch('/admin/studio/projects/:id', ...adminGuard, requirePermission('support:write'), (req: AuthedRequest, res) => {
   const status = cleanText(req.body?.status, 40);
   const adminNotes = cleanText(req.body?.admin_notes, 800);
   if (!['submitted', 'in_review', 'active', 'completed', 'archived'].includes(status)) {
@@ -2118,7 +3295,7 @@ apiRouter.patch('/admin/studio/projects/:id', ...adminGuard, (req: AuthedRequest
   res.json({ ok: true });
 });
 
-apiRouter.post('/admin/shop/products', ...adminGuard, (req: AuthedRequest, res) => {
+apiRouter.post('/admin/shop/products', ...adminGuard, requirePermission('shop:write'), (req: AuthedRequest, res) => {
   const name = cleanText(req.body?.name, 100);
   const category = cleanText(req.body?.category, 40) || 'Hardware';
   const priceUsd = Number(req.body?.price_usd);
@@ -2142,7 +3319,7 @@ apiRouter.post('/admin/shop/products', ...adminGuard, (req: AuthedRequest, res) 
   res.status(201).json({ id });
 });
 
-apiRouter.patch('/admin/shop/products/:id', ...adminGuard, (req: AuthedRequest, res) => {
+apiRouter.patch('/admin/shop/products/:id', ...adminGuard, requirePermission('shop:write'), (req: AuthedRequest, res) => {
   const stock = Number(req.body?.stock);
   const priceUsd = Number(req.body?.price_usd);
   const active = req.body?.active === 0 ? 0 : 1;
@@ -2156,13 +3333,13 @@ apiRouter.patch('/admin/shop/products/:id', ...adminGuard, (req: AuthedRequest, 
   res.json({ ok: true });
 });
 
-apiRouter.delete('/admin/shop/products/:id', ...adminGuard, (req: AuthedRequest, res) => {
+apiRouter.delete('/admin/shop/products/:id', ...adminGuard, requirePermission('shop:write'), (req: AuthedRequest, res) => {
   db.prepare('UPDATE products SET active = 0 WHERE id = ?').run(req.params.id);
   logAudit(req.authUser!.id, req.authUser!.email, 'ARCHIVE_PRODUCT', 'products', req.params.id);
   res.json({ ok: true });
 });
 
-apiRouter.patch('/admin/shop/orders/:id', ...adminGuard, (req: AuthedRequest, res) => {
+apiRouter.patch('/admin/shop/orders/:id', ...adminGuard, requirePermission('orders:write'), (req: AuthedRequest, res) => {
   const status = cleanText(req.body?.status, 40);
   if (!['pending_payment', 'paid', 'processing', 'fulfilled', 'refunded', 'cancelled'].includes(status)) {
     res.status(400).json({ error: 'Invalid order status.' });
@@ -2182,7 +3359,7 @@ apiRouter.patch('/admin/shop/orders/:id', ...adminGuard, (req: AuthedRequest, re
   res.json({ ok: true });
 });
 
-apiRouter.post('/admin/shop/coupons', ...adminGuard, (req: AuthedRequest, res) => {
+apiRouter.post('/admin/shop/coupons', ...adminGuard, requirePermission('shop:write'), (req: AuthedRequest, res) => {
   const code = cleanText(req.body?.code, 30).toUpperCase();
   const discountPercent = Number(req.body?.discount_percent);
   const maxUses = Number(req.body?.max_uses) || 100;
@@ -2199,13 +3376,13 @@ apiRouter.post('/admin/shop/coupons', ...adminGuard, (req: AuthedRequest, res) =
   res.status(201).json({ id });
 });
 
-apiRouter.delete('/admin/shop/coupons/:id', ...adminGuard, (req: AuthedRequest, res) => {
+apiRouter.delete('/admin/shop/coupons/:id', ...adminGuard, requirePermission('shop:write'), (req: AuthedRequest, res) => {
   db.prepare('DELETE FROM coupons WHERE id = ?').run(req.params.id);
   logAudit(req.authUser!.id, req.authUser!.email, 'DELETE_COUPON', 'coupons', req.params.id);
   res.json({ ok: true });
 });
 
-apiRouter.patch('/admin/partners/:id', ...adminGuard, (req: AuthedRequest, res) => {
+apiRouter.patch('/admin/partners/:id', ...adminGuard, requirePermission('cms:write'), (req: AuthedRequest, res) => {
   const status = cleanText(req.body?.status, 30);
   const commissionRate = Number(req.body?.commission_rate) || 15;
   if (!['pending', 'approved', 'rejected'].includes(status)) {
@@ -2227,7 +3404,7 @@ apiRouter.patch('/admin/partners/:id', ...adminGuard, (req: AuthedRequest, res) 
   res.json({ ok: true });
 });
 
-apiRouter.patch('/admin/careers/:id', ...adminGuard, (req: AuthedRequest, res) => {
+apiRouter.patch('/admin/careers/:id', ...adminGuard, requirePermission('cms:write'), (req: AuthedRequest, res) => {
   const status = cleanText(req.body?.status, 30);
   const notes = cleanText(req.body?.reviewer_notes, 500);
   if (!['received', 'reviewing', 'interview', 'accepted', 'declined'].includes(status)) {
@@ -2243,7 +3420,7 @@ apiRouter.patch('/admin/careers/:id', ...adminGuard, (req: AuthedRequest, res) =
   res.json({ ok: true });
 });
 
-apiRouter.patch('/admin/launch/:id', ...adminGuard, (req: AuthedRequest, res) => {
+apiRouter.patch('/admin/launch/:id', ...adminGuard, requirePermission('cms:write'), (req: AuthedRequest, res) => {
   const status = cleanText(req.body?.eligibility_status, 40);
   if (!['pending_verification', 'qualified', 'waitlisted', 'ineligible'].includes(status)) {
     res.status(400).json({ error: 'Invalid eligibility status.' });
@@ -2267,7 +3444,7 @@ apiRouter.patch('/admin/launch/:id', ...adminGuard, (req: AuthedRequest, res) =>
   res.json({ ok: true });
 });
 
-apiRouter.patch('/admin/support/tickets/:id', ...adminGuard, (req: AuthedRequest, res) => {
+apiRouter.patch('/admin/support/tickets/:id', ...adminGuard, requirePermission('support:write'), (req: AuthedRequest, res) => {
   const status = cleanText(req.body?.status, 30);
   const priority = cleanText(req.body?.priority, 20);
   if (!['open', 'answered', 'resolved', 'closed'].includes(status)) {
@@ -2284,7 +3461,7 @@ apiRouter.patch('/admin/support/tickets/:id', ...adminGuard, (req: AuthedRequest
   res.json({ ok: true });
 });
 
-apiRouter.post('/admin/blog/posts', ...adminGuard, (req: AuthedRequest, res) => {
+apiRouter.post('/admin/blog/posts', ...adminGuard, requirePermission('cms:write'), (req: AuthedRequest, res) => {
   const title = cleanText(req.body?.title, 160);
   const category = cleanText(req.body?.category, 50) || 'Engineering';
   const excerpt = cleanText(req.body?.excerpt, 400);
@@ -2309,13 +3486,13 @@ apiRouter.post('/admin/blog/posts', ...adminGuard, (req: AuthedRequest, res) => 
   res.status(201).json({ id });
 });
 
-apiRouter.delete('/admin/blog/posts/:id', ...adminGuard, (req: AuthedRequest, res) => {
+apiRouter.delete('/admin/blog/posts/:id', ...adminGuard, requirePermission('cms:write'), (req: AuthedRequest, res) => {
   db.prepare('DELETE FROM blog_posts WHERE id = ?').run(req.params.id);
   logAudit(req.authUser!.id, req.authUser!.email, 'DELETE_BLOG_POST', 'blog_posts', req.params.id);
   res.json({ ok: true });
 });
 
-apiRouter.post('/admin/announcements', ...adminGuard, (req: AuthedRequest, res) => {
+apiRouter.post('/admin/announcements', ...adminGuard, requirePermission('cms:write'), (req: AuthedRequest, res) => {
   const title = cleanText(req.body?.title, 120);
   const body = cleanText(req.body?.body, 400);
   const type = cleanText(req.body?.type, 30) || 'general';
@@ -2335,13 +3512,13 @@ apiRouter.post('/admin/announcements', ...adminGuard, (req: AuthedRequest, res) 
   res.status(201).json({ id });
 });
 
-apiRouter.delete('/admin/announcements/:id', ...adminGuard, (req: AuthedRequest, res) => {
+apiRouter.delete('/admin/announcements/:id', ...adminGuard, requirePermission('cms:write'), (req: AuthedRequest, res) => {
   db.prepare('DELETE FROM announcements WHERE id = ?').run(req.params.id);
   logAudit(req.authUser!.id, req.authUser!.email, 'DELETE_ANNOUNCEMENT', 'announcements', req.params.id);
   res.json({ ok: true });
 });
 
-apiRouter.post('/admin/faqs', ...adminGuard, (req: AuthedRequest, res) => {
+apiRouter.post('/admin/faqs', ...adminGuard, requirePermission('cms:write'), (req: AuthedRequest, res) => {
   const category = cleanText(req.body?.category, 50) || 'General';
   const question = cleanText(req.body?.question, 200);
   const answer = cleanText(req.body?.answer, 800);
@@ -2360,14 +3537,18 @@ apiRouter.post('/admin/faqs', ...adminGuard, (req: AuthedRequest, res) => {
   res.status(201).json({ id });
 });
 
-apiRouter.delete('/admin/faqs/:id', ...adminGuard, (req: AuthedRequest, res) => {
+apiRouter.delete('/admin/faqs/:id', ...adminGuard, requirePermission('cms:write'), (req: AuthedRequest, res) => {
   db.prepare('DELETE FROM faqs WHERE id = ?').run(req.params.id);
   logAudit(req.authUser!.id, req.authUser!.email, 'DELETE_FAQ', 'faqs', req.params.id);
   res.json({ ok: true });
 });
 
-apiRouter.patch('/admin/settings', ...adminGuard, (req: AuthedRequest, res) => {
+apiRouter.patch('/admin/settings', ...adminGuard, requirePermission('settings:write'), (req: AuthedRequest, res) => {
   const key = cleanText(req.body?.key, 40) || 'general';
+  if (key === 'security_controls') {
+    res.status(403).json({ error: 'Security controls must be updated via /api/admin/security/controls.' });
+    return;
+  }
   const value = req.body?.value;
   if (!value || typeof value !== 'object') {
     res.status(400).json({ error: 'Valid settings object required.' });

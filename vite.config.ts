@@ -33,6 +33,14 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    build: {
+      sourcemap: false,
+      minify: 'esbuild' as const,
+    },
+    esbuild:
+      process.env.NODE_ENV === 'production'
+        ? { drop: ['debugger'] as ('console' | 'debugger')[] }
+        : undefined,
     server: {
       allowedHosts: true as const,
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

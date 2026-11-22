@@ -175,12 +175,19 @@ export function ShopPage({ onNavigate }: ShopPageProps) {
 
     setCheckoutSubmitting(true);
     try {
+      const idempotencyKey =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `ord-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       const res = await apiRequest<{
         order: { id: string; total_usd: number };
         invoice: { invoice_number: string };
         paymentNotice: string;
       }>('/api/shop/orders', {
         method: 'POST',
+        headers: {
+          'Idempotency-Key': idempotencyKey,
+        },
         body: JSON.stringify({
           items: cart.map((c) => ({ productId: c.productId, quantity: c.quantity })),
           shippingAddress: shippingAddress.trim(),

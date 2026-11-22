@@ -15,7 +15,10 @@ export function getPterodactylStatus(): PterodactylConfigStatus {
   if (rawUrl) {
     try {
       const parsed = new URL(rawUrl);
-      if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+      const host = parsed.hostname.toLowerCase();
+      const isBlockedMetadata =
+        host === '169.254.169.254' || host === 'metadata.google.internal' || host === '0.0.0.0';
+      if ((parsed.protocol === 'https:' || parsed.protocol === 'http:') && !isBlockedMetadata) {
         validUrl = rawUrl.replace(/\/+$/, '');
       }
     } catch {
@@ -96,13 +99,13 @@ export async function fetchPterodactylServerResources(identifier: string): Promi
     };
   }
 
-  const safeId = identifier.replace(/[^a-zA-Z0-9_-]/g, '');
-  if (!safeId) {
+  const trimmedId = identifier.trim();
+  if (!/^[a-zA-Z0-9_-]{4,48}$/.test(trimmedId)) {
     return { ok: false, status: 400, error: 'Invalid server identifier.' };
   }
 
   try {
-    const response = await fetch(`${cfg.panelUrl}/api/client/servers/${safeId}/resources`, {
+    const response = await fetch(`${cfg.panelUrl}/api/client/servers/${trimmedId}/resources`, {
       headers: {
         Authorization: `Bearer ${clientKey}`,
         Accept: 'application/json',
@@ -143,13 +146,13 @@ export async function sendPterodactylPowerSignal(
     };
   }
 
-  const safeId = identifier.replace(/[^a-zA-Z0-9_-]/g, '');
-  if (!safeId) {
+  const trimmedId = identifier.trim();
+  if (!/^[a-zA-Z0-9_-]{4,48}$/.test(trimmedId)) {
     return { ok: false, status: 400, error: 'Invalid server identifier.' };
   }
 
   try {
-    const response = await fetch(`${cfg.panelUrl}/api/client/servers/${safeId}/power`, {
+    const response = await fetch(`${cfg.panelUrl}/api/client/servers/${trimmedId}/power`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${clientKey}`,

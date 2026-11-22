@@ -8,7 +8,7 @@ import { lazy, Suspense, useEffect, useState, type ComponentType } from 'react';
 import { Footer } from './components/Footer';
 import { LaunchGateway } from './components/LaunchGateway';
 import { Navbar } from './components/Navbar';
-import { AppProvider } from './context/AppContext';
+import { AppProvider, useAppContext } from './context/AppContext';
 import { DivisionId } from './lib/platformData';
 import { HomePage } from './pages/HomePage';
 import { PageRoute, ROUTE_PATHS, parseRouteFromHash } from './types/navigation';
@@ -64,6 +64,7 @@ function AppShell() {
       ? 'settled'
       : 'waiting';
   });
+  const { siteData } = useAppContext();
   const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
@@ -74,6 +75,17 @@ function AppShell() {
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
+
+  useEffect(() => {
+    if (!siteData?.settings?.security_controls?.devtoolsDeterrence) return;
+    const onContextMenu = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
+      event.preventDefault();
+    };
+    document.addEventListener('contextmenu', onContextMenu);
+    return () => document.removeEventListener('contextmenu', onContextMenu);
+  }, [siteData?.settings?.security_controls?.devtoolsDeterrence]);
 
   const navigateTo = (nextRoute: PageRoute, division?: DivisionId) => {
     if (division) {

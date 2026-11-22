@@ -1,23 +1,53 @@
 import 'dotenv/config';
-import express from 'express';
+import express, { type NextFunction, type Request, type Response } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createServer as createViteServer } from 'vite';
 import { initDatabase } from './server/db.ts';
 import { apiRouter } from './server/routes.ts';
-import { securityHeaders } from './server/security.ts';
+import {
+  antiAbuseMiddleware,
+  createRateLimiter,
+  incrementApiRequestCount,
+  incrementUnauthorizedCount,
+  noStoreCache,
+  securityHeaders,
+} from './server/security.ts';
 
 async function startServer(): Promise<void> {
   initDatabase();
 
   const app = express();
+  app.disable('x-powered-by');
   app.set('trust proxy', 1);
 
   app.use(securityHeaders);
-  app.use(express.json({ limit: '2mb' }));
-  app.use(express.urlencoded({ extended: false }));
+  app.use((_req, res, next) => {
+    res.setTimeout(30_000);
+    next();
+  });
+  app.use(
+    express.json({
+      limit: '1mb',
+      verify: (req, _res, buf) => {
+        (req as Request & { rawBody?: Buffer }).rawBody = buf;
+      },
+    }),
+  );
+  app.use(express.urlencoded({ extended: false, limit: '256kb' }));
+  app.use(antiAbuseMiddleware);
 
-  app.use('/api', apiRouter);
+  app.use('/api', (_req, res, next) => {
+    incrementApiRequestCount();
+    res.on('finish', () => {
+      if (res.statusCode === 401 || res.statusCode === 403) {
+        incrementUnauthorizedCount();
+      }
+    });
+    next();
+  });
+  app.use(['/api/auth', '/api/dashboard', '/api/admin'], noStoreCache);
+  app.use('/api', createRateLimiter(180, 60 * 1000, 'global'), apiRouter);
 
   const isProd = process.env.NODE_ENV === 'production';
 
@@ -39,6 +69,14 @@ async function startServer(): Promise<void> {
       }
     });
   }
+
+  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    if (err instanceof SyntaxError && 'status' in err && (err as { status?: number }).status === 400) {
+      res.status(400).json({ error: 'Malformed JSON request body.' });
+      return;
+    }
+    res.status(500).json({ error: 'An unexpected server error occurred.' });
+  });
 
   const port = Number(process.env.PORT) || 3000;
   app.listen(port, '0.0.0.0', () => {
