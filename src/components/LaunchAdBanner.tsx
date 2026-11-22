@@ -16,6 +16,7 @@ interface AdSlide {
   title: string;
   description: string;
   ctaLabel: string;
+  route: PageRoute;
   accentGlow: string;
 }
 
@@ -29,6 +30,7 @@ const AD_SLIDES: AdSlide[] = [
     description:
       'Innovate, build, and grow on unified infrastructure launching worldwide on January 1, 2027.',
     ctaLabel: 'Explore Launch 2027',
+    route: 'launch',
     accentGlow: 'from-emerald-500/20 via-emerald-950/30 to-transparent',
   },
   {
@@ -40,7 +42,44 @@ const AD_SLIDES: AdSlide[] = [
     description:
       'Register and verify your account ahead of January 1, 2027 to qualify for a launch-day 8GB RAM server node.',
     ctaLabel: 'Register Now',
+    route: 'launch',
     accentGlow: 'from-violet-500/25 via-indigo-950/35 to-transparent',
+  },
+  {
+    id: 'shop-launch-discount',
+    image: '/assets/aistudio/file_0000000072308211ac67bfe8ba91702a_8d3c9197.png',
+    alt: 'HelzerX Shop — Launch Day 50% Discount on Design, Banners, Presentations & Social Media',
+    eyebrow: 'HelzerX Shop · Launch Day 50% Discount',
+    title: 'Better Visuals, Bigger Opportunities at 50% Off',
+    description:
+      'Save on design kits, custom banners, presentations, social media packs, and hardware drops in the HelzerX Shop.',
+    ctaLabel: 'Visit HelzerX Shop',
+    route: 'shop',
+    accentGlow: 'from-blue-500/20 via-slate-900/35 to-transparent',
+  },
+  {
+    id: 'studio-2027',
+    image: '/assets/aistudio/file_00000000a76082119548efd2f54d1d89_228943b7.png',
+    alt: 'HelzerX Studio 2027 — Innovate. Build. Grow.',
+    eyebrow: 'HelzerX Studio · 2027',
+    title: 'Innovate, Build & Grow With HelzerX Studio',
+    description:
+      'Full-stack web platforms, UI/UX design systems, branding, and bespoke software engineered in structured sprints.',
+    ctaLabel: 'Explore Studio',
+    route: 'studio',
+    accentGlow: 'from-sky-500/25 via-blue-950/35 to-transparent',
+  },
+  {
+    id: 'cloud-infrastructure',
+    image: '/assets/aistudio/file_0000000053e08211a7179b7f506c5645_d1b16050.png',
+    alt: 'HelzerX Cloud — We Build Cloud Infrastructure That Powers Growth',
+    eyebrow: 'HelzerX Cloud · Secure & Scalable',
+    title: 'Cloud Infrastructure Built to Power Growth',
+    description:
+      'Scale effortlessly with secure bare-metal platforms, high-frequency nodes, seamless migration, and DevOps automation.',
+    ctaLabel: 'Explore Cloud',
+    route: 'cloud',
+    accentGlow: 'from-cyan-500/25 via-blue-950/35 to-transparent',
   },
 ];
 
@@ -90,9 +129,9 @@ export function LaunchAdBanner({ onNavigate }: LaunchAdBannerProps) {
               {/* Animated Promotional Artwork Stage */}
               <button
                 type="button"
-                onClick={() => onNavigate('launch')}
+                onClick={() => onNavigate(activeSlide.route)}
                 className="relative h-[220px] sm:h-[270px] lg:h-[290px] w-full overflow-hidden bg-[#070709] cursor-pointer text-left focus:outline-none group"
-                aria-label={`${activeSlide.title} — Open Launch 2027 page`}
+                aria-label={`${activeSlide.title} — ${activeSlide.ctaLabel}`}
               >
                 <AnimatePresence mode="wait" custom={direction} initial={false}>
                   <motion.div
@@ -169,7 +208,7 @@ export function LaunchAdBanner({ onNavigate }: LaunchAdBannerProps) {
                 <div className="mt-6 pt-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-3">
                   <button
                     type="button"
-                    onClick={() => onNavigate('launch')}
+                    onClick={() => onNavigate(activeSlide.route)}
                     className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-[#0A0A0B] bg-white rounded-lg hover:bg-neutral-200 transition-colors cursor-pointer"
                   >
                     <span>{activeSlide.ctaLabel}</span>
