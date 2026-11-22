@@ -327,6 +327,19 @@ export function initDatabase(): void {
       details TEXT DEFAULT '',
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS email_otp_codes (
+      id TEXT PRIMARY KEY,
+      purpose TEXT NOT NULL,
+      email TEXT NOT NULL,
+      name TEXT DEFAULT '',
+      password_hash TEXT DEFAULT '',
+      code_hash TEXT NOT NULL,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      expires_at TEXT NOT NULL,
+      consumed INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    );
   `);
 
   seedInitialData();

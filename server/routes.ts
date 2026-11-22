@@ -21,6 +21,18 @@ import {
   verifySessionToken,
   type UserRole,
 } from './security.ts';
+import {
+  buildOAuthAuthorizeUrl,
+  exchangeOAuthCodeForProfile,
+  generateSixDigitCode,
+  getAuthPublicConfig,
+  getProviderConfig,
+  hashOtpCode,
+  resolveAppBaseUrl,
+  sendOtpEmail,
+  verifyOAuthState,
+  verifyTurnstileToken,
+} from './authProviders.ts';
 
 interface AuthenticatedUser {
   id: string;
@@ -132,9 +144,34 @@ apiRouter.get('/health', (_req, res) => {
   });
 });
 
+function syncEarlyAccessForVerifiedEmail(userId: string, email: string): void {
+  const ea = db
+    .prepare('SELECT id, accepted_terms FROM early_access_registrations WHERE email = ?')
+    .get(email) as { id: string; accepted_terms: number } | undefined;
+  if (ea && ea.accepted_terms === 1) {
+    const campaign = db
+      .prepare('SELECT launch_date, early_access_limit FROM launch_campaign WHERE id = ?')
+      .get('launch_2027') as { launch_date: string; early_access_limit: number } | undefined;
+    const qualifiedCount = db
+      .prepare("SELECT COUNT(*) as c FROM early_access_registrations WHERE eligibility_status = 'qualified'")
+      .get() as { c: number };
+    const limit = campaign?.early_access_limit ?? 50;
+    const beforeLaunch = campaign ? new Date() < new Date(campaign.launch_date) : true;
+    const newStatus = beforeLaunch && qualifiedCount.c < limit ? 'qualified' : 'waitlisted';
+    const slotNum = newStatus === 'qualified' ? qualifiedCount.c + 1 : null;
+    db.prepare(
+      'UPDATE early_access_registrations SET user_id = COALESCE(user_id, ?), email_verified = 1, eligibility_status = ?, slot_number = ? WHERE id = ?',
+    ).run(userId, newStatus, slotNum, ea.id);
+  }
+}
+
 // ==================================================
 // AUTHENTICATION & FIRST-RUN SUPER ADMIN BOOTSTRAP
 // ==================================================
+
+apiRouter.get('/auth/config', (_req, res) => {
+  res.json(getAuthPublicConfig());
+});
 
 apiRouter.get('/auth/bootstrap-status', (_req, res) => {
   const adminRow = db
@@ -304,6 +341,479 @@ apiRouter.post('/auth/login', authRateLimit, async (req, res) => {
 
   res.json({ token, user: sanitizeUser(row) });
 });
+
+apiRouter.post('/auth/login/start', authRateLimit, async (req, res) => {
+  const email = cleanText(req.body?.email, 254).toLowerCase();
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  const turnstileToken = typeof req.body?.turnstileToken === 'string' ? req.body.turnstileToken : '';
+
+  const turnstile = await verifyTurnstileToken(turnstileToken, req.ip);
+  if (!turnstile.ok) {
+    res.status(400).json({ error: turnstile.error || 'Cloudflare verification required.' });
+    return;
+  }
+
+  if (!isValidEmail(email) || !password) {
+    res.status(400).json({ error: 'Email and password are required.' });
+    return;
+  }
+
+  const row = db
+    .prepare('SELECT * FROM users WHERE email = ?')
+    .get(email) as Record<string, unknown> | undefined;
+
+  if (!row) {
+    res.status(401).json({ error: 'Invalid email or password.' });
+    return;
+  }
+
+  const valid = await verifyPassword(password, String(row.password_hash));
+  if (!valid) {
+    res.status(401).json({ error: 'Invalid email or password.' });
+    return;
+  }
+
+  if (row.status !== 'active') {
+    res.status(403).json({ error: 'This account has been suspended. Contact support.' });
+    return;
+  }
+
+  const challengeId = generateId('otp');
+  const code = generateSixDigitCode();
+  const codeHash = hashOtpCode(challengeId, code);
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 10 * 60 * 1000).toISOString();
+
+  db.prepare(`
+    INSERT INTO email_otp_codes (id, purpose, email, name, password_hash, code_hash, attempts, expires_at, consumed, created_at)
+    VALUES (?, 'login', ?, ?, '', ?, 0, ?, 0, ?)
+  `).run(challengeId, email, String(row.name), codeHash, expiresAt, now.toISOString());
+
+  const delivery = await sendOtpEmail({
+    email,
+    name: String(row.name),
+    code,
+    purpose: 'login',
+  });
+
+  res.json({
+    challengeId,
+    email,
+    expiresInSeconds: 600,
+    deliveryMode: delivery.deliveryMode,
+    ...(delivery.deliveryMode === 'preview' ? { codePreview: code } : {}),
+  });
+});
+
+apiRouter.post('/auth/register/start', authRateLimit, async (req, res) => {
+  const name = cleanText(req.body?.name, 80);
+  const email = cleanText(req.body?.email, 254).toLowerCase();
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  const turnstileToken = typeof req.body?.turnstileToken === 'string' ? req.body.turnstileToken : '';
+
+  const turnstile = await verifyTurnstileToken(turnstileToken, req.ip);
+  if (!turnstile.ok) {
+    res.status(400).json({ error: turnstile.error || 'Cloudflare verification required.' });
+    return;
+  }
+
+  if (name.length < 2) {
+    res.status(400).json({ error: 'Name must be at least 2 characters.' });
+    return;
+  }
+  if (!isValidEmail(email)) {
+    res.status(400).json({ error: 'Please provide a valid email address.' });
+    return;
+  }
+  if (password.length < 8) {
+    res.status(400).json({ error: 'Password must be at least 8 characters.' });
+    return;
+  }
+
+  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+  if (existing) {
+    res.status(409).json({ error: 'An account with this email already exists.' });
+    return;
+  }
+
+  const passwordHash = await hashPassword(password);
+  const challengeId = generateId('otp');
+  const code = generateSixDigitCode();
+  const codeHash = hashOtpCode(challengeId, code);
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 10 * 60 * 1000).toISOString();
+
+  db.prepare(`
+    INSERT INTO email_otp_codes (id, purpose, email, name, password_hash, code_hash, attempts, expires_at, consumed, created_at)
+    VALUES (?, 'register', ?, ?, ?, ?, 0, ?, 0, ?)
+  `).run(challengeId, email, name, passwordHash, codeHash, expiresAt, now.toISOString());
+
+  const delivery = await sendOtpEmail({
+    email,
+    name,
+    code,
+    purpose: 'register',
+  });
+
+  res.json({
+    challengeId,
+    email,
+    expiresInSeconds: 600,
+    deliveryMode: delivery.deliveryMode,
+    ...(delivery.deliveryMode === 'preview' ? { codePreview: code } : {}),
+  });
+});
+
+apiRouter.post('/auth/otp/resend', authRateLimit, async (req, res) => {
+  const challengeId = cleanText(req.body?.challengeId, 64);
+  if (!challengeId) {
+    res.status(400).json({ error: 'Verification challenge ID is required.' });
+    return;
+  }
+
+  const row = db
+    .prepare('SELECT * FROM email_otp_codes WHERE id = ? AND consumed = 0')
+    .get(challengeId) as
+    | { id: string; purpose: 'login' | 'register'; email: string; name: string; created_at: string }
+    | undefined;
+
+  if (!row) {
+    res.status(404).json({ error: 'Verification session expired. Please start again.' });
+    return;
+  }
+
+  const elapsedMs = Date.now() - new Date(row.created_at).getTime();
+  if (elapsedMs < 20_000) {
+    res.status(429).json({
+      error: `Please wait ${Math.ceil((20_000 - elapsedMs) / 1000)}s before requesting a new code.`,
+    });
+    return;
+  }
+
+  const code = generateSixDigitCode();
+  const codeHash = hashOtpCode(row.id, code);
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 10 * 60 * 1000).toISOString();
+
+  db.prepare(`
+    UPDATE email_otp_codes SET code_hash = ?, attempts = 0, expires_at = ?, created_at = ? WHERE id = ?
+  `).run(codeHash, expiresAt, now.toISOString(), row.id);
+
+  const delivery = await sendOtpEmail({
+    email: row.email,
+    name: row.name,
+    code,
+    purpose: row.purpose,
+  });
+
+  res.json({
+    ok: true,
+    expiresInSeconds: 600,
+    deliveryMode: delivery.deliveryMode,
+    ...(delivery.deliveryMode === 'preview' ? { codePreview: code } : {}),
+  });
+});
+
+apiRouter.post('/auth/otp/verify', authRateLimit, (req, res) => {
+  const challengeId = cleanText(req.body?.challengeId, 64);
+  const code = cleanText(req.body?.code, 12).replace(/\s+/g, '');
+
+  if (!challengeId || !/^\d{6}$/.test(code)) {
+    res.status(400).json({ error: 'Enter the 6-digit verification code sent to your email.' });
+    return;
+  }
+
+  const challenge = db
+    .prepare('SELECT * FROM email_otp_codes WHERE id = ?')
+    .get(challengeId) as
+    | {
+        id: string;
+        purpose: 'login' | 'register';
+        email: string;
+        name: string;
+        password_hash: string;
+        code_hash: string;
+        attempts: number;
+        expires_at: string;
+        consumed: number;
+      }
+    | undefined;
+
+  if (!challenge || challenge.consumed === 1) {
+    res.status(404).json({ error: 'Verification session not found or already used.' });
+    return;
+  }
+
+  if (new Date(challenge.expires_at) < new Date()) {
+    res.status(410).json({ error: 'Verification code has expired. Please request a new code.' });
+    return;
+  }
+
+  if (challenge.attempts >= 5) {
+    res.status(429).json({ error: 'Too many invalid code attempts. Please start again.' });
+    return;
+  }
+
+  const candidateHash = hashOtpCode(challenge.id, code);
+  const candidateBuf = Buffer.from(candidateHash, 'hex');
+  const expectedBuf = Buffer.from(challenge.code_hash, 'hex');
+  const isMatch =
+    candidateBuf.length === expectedBuf.length &&
+    crypto.timingSafeEqual(candidateBuf, expectedBuf);
+
+  if (!isMatch) {
+    const nextAttempts = challenge.attempts + 1;
+    db.prepare('UPDATE email_otp_codes SET attempts = ? WHERE id = ?').run(
+      nextAttempts,
+      challenge.id,
+    );
+    const remaining = Math.max(0, 5 - nextAttempts);
+    res.status(401).json({
+      error:
+        remaining > 0
+          ? `Invalid 6-digit code. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`
+          : 'Too many invalid attempts. Please start again.',
+    });
+    return;
+  }
+
+  const now = new Date().toISOString();
+
+  if (challenge.purpose === 'login') {
+    const userRow = db
+      .prepare('SELECT * FROM users WHERE email = ?')
+      .get(challenge.email) as Record<string, unknown> | undefined;
+    if (!userRow || userRow.status !== 'active') {
+      res.status(403).json({ error: 'Account unavailable. Contact support.' });
+      return;
+    }
+
+    db.prepare('UPDATE email_otp_codes SET consumed = 1 WHERE id = ?').run(challenge.id);
+    if (Number(userRow.email_verified) === 0) {
+      db.prepare('UPDATE users SET email_verified = 1, verification_token = NULL, updated_at = ? WHERE id = ?').run(
+        now,
+        String(userRow.id),
+      );
+      syncEarlyAccessForVerifiedEmail(String(userRow.id), challenge.email);
+    }
+
+    const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(String(userRow.id)) as Record<
+      string,
+      unknown
+    >;
+    const token = signSessionToken({
+      sub: String(updated.id),
+      email: String(updated.email),
+      role: String(updated.role) as UserRole,
+    });
+    res.json({ token, user: sanitizeUser(updated) });
+    return;
+  }
+
+  // Register completion
+  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(challenge.email);
+  if (existing) {
+    db.prepare('UPDATE email_otp_codes SET consumed = 1 WHERE id = ?').run(challenge.id);
+    res.status(409).json({ error: 'An account with this email already exists.' });
+    return;
+  }
+
+  const userId = generateId('usr');
+  db.prepare(`
+    INSERT INTO users (id, name, email, password_hash, role, status, email_verified, created_at, updated_at)
+    VALUES (?, ?, ?, ?, 'customer', 'active', 1, ?, ?)
+  `).run(userId, challenge.name, challenge.email, challenge.password_hash, now, now);
+
+  db.prepare('UPDATE email_otp_codes SET consumed = 1 WHERE id = ?').run(challenge.id);
+
+  createNotification(
+    userId,
+    'Welcome to HelzerX Technologies',
+    'Your email address has been verified via 6-digit security code and your unified account is active.',
+  );
+  syncEarlyAccessForVerifiedEmail(userId, challenge.email);
+
+  const createdRow = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as Record<
+    string,
+    unknown
+  >;
+  const token = signSessionToken({
+    sub: userId,
+    email: challenge.email,
+    role: 'customer',
+  });
+  res.status(201).json({ token, user: sanitizeUser(createdRow) });
+});
+
+apiRouter.get('/auth/oauth/:provider/url', authRateLimit, (req, res) => {
+  const config = getProviderConfig(req.params.provider);
+  if (!config) {
+    res.status(404).json({ error: 'Unsupported OAuth provider.' });
+    return;
+  }
+
+  const originQuery = typeof req.query.origin === 'string' ? req.query.origin : undefined;
+  const baseUrl = resolveAppBaseUrl(originQuery);
+  const redirectUri = `${baseUrl}/api/auth/oauth/${config.id}/callback`;
+
+  if (!config.configured) {
+    res.json({
+      configured: false,
+      provider: config.id,
+      label: config.label,
+      callbackUrl: redirectUri,
+      requiredEnvVars: [config.clientIdEnv, config.clientSecretEnv],
+    });
+    return;
+  }
+
+  const url = buildOAuthAuthorizeUrl(config, redirectUri);
+  res.json({
+    configured: true,
+    provider: config.id,
+    label: config.label,
+    callbackUrl: redirectUri,
+    url,
+  });
+});
+
+const oauthCallbackHandler = async (req: Request, res: Response) => {
+  const sendPopupResult = (payload: Record<string, unknown>) => {
+    const serialized = JSON.stringify(payload).replace(/</g, '\\u003c');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(`<!doctype html>
+<html>
+  <head><title>HelzerX Authentication</title></head>
+  <body style="font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #F4F4F5; color: #0A0A0B;">
+    <div style="text-align: center; max-width: 360px; padding: 24px;">
+      <p style="font-weight: 700; margin-bottom: 8px;">Completing HelzerX Sign-In...</p>
+      <p style="font-size: 13px; color: #52525B;">This window will close automatically.</p>
+    </div>
+    <script>
+      (function() {
+        var data = ${serialized};
+        if (window.opener) {
+          window.opener.postMessage(data, '*');
+          window.close();
+        } else {
+          window.location.href = '/#/auth';
+        }
+      })();
+    </script>
+  </body>
+</html>`);
+  };
+
+  const config = getProviderConfig(req.params.provider);
+  if (!config || !config.configured) {
+    sendPopupResult({ type: 'HELZERX_OAUTH_ERROR', error: 'OAuth provider is not configured.' });
+    return;
+  }
+
+  const source = req.method === 'POST' ? (req.body ?? {}) : req.query;
+  const errorParam = typeof source.error === 'string' ? source.error : '';
+  if (errorParam) {
+    sendPopupResult({
+      type: 'HELZERX_OAUTH_ERROR',
+      error: cleanText(source.error_description || errorParam, 200),
+    });
+    return;
+  }
+
+  const code = typeof source.code === 'string' ? source.code : '';
+  const state = typeof source.state === 'string' ? source.state : '';
+  const appleUserJson = typeof source.user === 'string' ? source.user : undefined;
+
+  const parsedState = verifyOAuthState(state, config.id);
+  if (!code || !parsedState) {
+    sendPopupResult({
+      type: 'HELZERX_OAUTH_ERROR',
+      error: 'Invalid or expired OAuth state. Please try again.',
+    });
+    return;
+  }
+
+  try {
+    const profile = await exchangeOAuthCodeForProfile({
+      config,
+      code,
+      redirectUri: parsedState.redirectUri,
+      appleUserJson,
+    });
+
+    const now = new Date().toISOString();
+    let userRow = db
+      .prepare('SELECT * FROM users WHERE email = ?')
+      .get(profile.email) as Record<string, unknown> | undefined;
+
+    if (!userRow) {
+      const userId = generateId('usr');
+      const randomPasswordHash = await hashPassword(crypto.randomBytes(24).toString('hex'));
+      db.prepare(`
+        INSERT INTO users (id, name, email, password_hash, role, status, email_verified, avatar_url, created_at, updated_at)
+        VALUES (?, ?, ?, ?, 'customer', 'active', 1, ?, ?, ?)
+      `).run(
+        userId,
+        profile.name,
+        profile.email,
+        randomPasswordHash,
+        isSafeHttpUrl(profile.avatarUrl) ? profile.avatarUrl : '',
+        now,
+        now,
+      );
+      createNotification(
+        userId,
+        `Signed up via ${config.label}`,
+        `Your HelzerX Technologies account is linked with ${config.label}.`,
+      );
+      syncEarlyAccessForVerifiedEmail(userId, profile.email);
+      userRow = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as Record<string, unknown>;
+    } else {
+      if (userRow.status !== 'active') {
+        sendPopupResult({
+          type: 'HELZERX_OAUTH_ERROR',
+          error: 'This account has been suspended. Contact support.',
+        });
+        return;
+      }
+      if (Number(userRow.email_verified) === 0) {
+        db.prepare('UPDATE users SET email_verified = 1, verification_token = NULL, updated_at = ? WHERE id = ?').run(
+          now,
+          String(userRow.id),
+        );
+        syncEarlyAccessForVerifiedEmail(String(userRow.id), profile.email);
+        userRow = db.prepare('SELECT * FROM users WHERE id = ?').get(String(userRow.id)) as Record<
+          string,
+          unknown
+        >;
+      }
+    }
+
+    const sanitized = sanitizeUser(userRow);
+    const token = signSessionToken({
+      sub: sanitized.id,
+      email: sanitized.email,
+      role: sanitized.role,
+    });
+
+    sendPopupResult({
+      type: 'HELZERX_OAUTH_SUCCESS',
+      provider: config.id,
+      token,
+      user: sanitized,
+    });
+  } catch (err) {
+    sendPopupResult({
+      type: 'HELZERX_OAUTH_ERROR',
+      error: err instanceof Error ? err.message : `${config.label} authentication failed.`,
+    });
+  }
+};
+
+apiRouter.all(
+  ['/auth/oauth/:provider/callback', '/auth/oauth/:provider/callback/'],
+  oauthCallbackHandler,
+);
 
 apiRouter.post('/auth/verify-email', authRateLimit, (req, res) => {
   const token = cleanText(req.body?.token, 64);

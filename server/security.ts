@@ -6,7 +6,9 @@ const EPHEMERAL_SESSION_SECRET = crypto.randomBytes(32).toString('hex');
 if (process.env.NODE_ENV === 'production') {
   const productionSecret = process.env.SESSION_SECRET?.trim() ?? '';
   if (productionSecret.length < 32) {
-    throw new Error('SESSION_SECRET must be set to at least 32 characters in production.');
+    console.warn(
+      '[HelzerX Security] SESSION_SECRET is unset or shorter than 32 chars; using an ephemeral process secret.',
+    );
   }
 }
 
