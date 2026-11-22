@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { lazy, Suspense, useState } from 'react';
+import { LaunchAdBanner } from '../components/LaunchAdBanner';
 import { Surface3D } from '../components/Surface3D';
 import { TrustedLogos } from '../components/TrustedLogos';
 import { WorkspaceShowcase } from '../components/WorkspaceShowcase';
@@ -236,6 +237,8 @@ export function HomePage({ onNavigate }: HomePageProps) {
           </div>
         </div>
       </section>
+
+      <LaunchAdBanner onNavigate={onNavigate} />
 
       <TrustedLogos onNavigate={onNavigate} />
 
