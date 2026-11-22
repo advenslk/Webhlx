@@ -1,4 +1,4 @@
-import { ArrowRight, ArrowUpRight } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Mail, Phone } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { useAppContext } from '../context/AppContext';
@@ -257,6 +257,26 @@ export function LaunchGateway({ visible, onEnterSite }: LaunchGatewayProps) {
                 {spotsRemaining} of {earlyAccessLimit} First-50 Launch Allocations Open
               </span>
             </p>
+
+            {/* Subtle Support Contact Line */}
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 text-[11px] sm:text-xs text-neutral-500">
+              <span className="text-neutral-400 font-medium">Need help?</span>
+              <a
+                href="tel:+94781810179"
+                className="inline-flex items-center gap-1 text-neutral-300 hover:text-white transition-colors tabular-nums"
+              >
+                <Phone className="w-3 h-3" aria-hidden="true" />
+                <span>+94781810179</span>
+              </a>
+              <span aria-hidden="true" className="text-neutral-700">·</span>
+              <a
+                href="mailto:support@helzerx.cyou"
+                className="inline-flex items-center gap-1 text-neutral-300 hover:text-white transition-colors"
+              >
+                <Mail className="w-3 h-3" aria-hidden="true" />
+                <span>support@helzerx.cyou</span>
+              </a>
+            </div>
           </motion.div>
         </motion.div>
       )}
