@@ -7,6 +7,7 @@ interface Surface3DProps {
   intensity?: number;
   variant?: 'light' | 'dark';
   delay?: number;
+  animateEntrance?: boolean;
 }
 
 /**
@@ -20,8 +21,10 @@ export function Surface3D({
   className = '',
   variant = 'light',
   delay = 0,
+  animateEntrance = true,
 }: Surface3DProps) {
   const shouldReduceMotion = useReducedMotion();
+  const skipEntrance = shouldReduceMotion || !animateEntrance;
 
   const surfaceClasses =
     variant === 'dark'
@@ -30,8 +33,8 @@ export function Surface3D({
 
   return (
     <motion.div
-      initial={shouldReduceMotion ? false : { opacity: 0, y: 14 }}
-      whileInView={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+      initial={skipEntrance ? false : { opacity: 0, y: 14 }}
+      whileInView={skipEntrance ? undefined : { opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.1 }}
       transition={{ duration: 0.42, delay, ease: [0.16, 1, 0.3, 1] }}
       className={`group relative rounded-[22px] overflow-hidden transition-[border-color,box-shadow] duration-200 ${surfaceClasses} ${className}`}

@@ -6,16 +6,34 @@ interface TrustedLogosProps {
   onNavigate?: (route: PageRoute) => void;
 }
 
-const STACK_TILES = [
-  { name: 'Proxmox VE', role: 'LXC Compute', icon: Boxes },
-  { name: 'Pterodactyl', role: 'Game Proxy', icon: Gamepad2 },
-  { name: 'React 19', role: 'Spatial UI', icon: Code2 },
-  { name: 'SQLite WAL', role: 'Ledger DB', icon: Database },
-  { name: 'Node.js', role: 'API Gateway', icon: Cloud },
-  { name: 'Zero-Trust', role: 'Scrypt RBAC', icon: Lock },
-  { name: 'EPYC Nodes', role: 'DDR5 Bare-Metal', icon: Cpu },
-  { name: 'Anycast', role: 'Global Edge', icon: Globe },
-  { name: '99.98% SLA', role: 'Audit Trail', icon: ShieldCheck },
+const STACK_ROWS = [
+  {
+    id: 'row-1',
+    direction: 'right' as const,
+    tiles: [
+      { name: 'Proxmox VE', role: 'LXC Compute', icon: Boxes },
+      { name: 'Pterodactyl', role: 'Game Proxy', icon: Gamepad2 },
+      { name: 'React 19', role: 'Spatial UI', icon: Code2 },
+    ],
+  },
+  {
+    id: 'row-2',
+    direction: 'left' as const,
+    tiles: [
+      { name: 'SQLite WAL', role: 'Ledger DB', icon: Database },
+      { name: 'Node.js', role: 'API Gateway', icon: Cloud },
+      { name: 'Zero-Trust', role: 'Scrypt RBAC', icon: Lock },
+    ],
+  },
+  {
+    id: 'row-3',
+    direction: 'right' as const,
+    tiles: [
+      { name: 'EPYC Nodes', role: 'DDR5 Bare-Metal', icon: Cpu },
+      { name: 'Anycast', role: 'Global Edge', icon: Globe },
+      { name: '99.98% SLA', role: 'Audit Trail', icon: ShieldCheck },
+    ],
+  },
 ];
 
 export function TrustedLogos({ onNavigate }: TrustedLogosProps) {
@@ -46,21 +64,50 @@ export function TrustedLogos({ onNavigate }: TrustedLogosProps) {
           </div>
         </div>
 
-        {/* Right Elevated White 3D Stack Tile Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 sm:gap-4">
-          {STACK_TILES.map(({ name, role, icon: Icon }, idx) => (
-            <Surface3D key={name} intensity={12} delay={idx * 0.03} className="rounded-2xl">
-              <div className="p-4 sm:p-5 h-full min-h-[116px] flex flex-col items-center justify-center text-center">
-                <Icon className="w-5 h-5 text-[#0A0A0B] mb-2 shrink-0" aria-hidden="true" />
-                <span className="text-xs sm:text-sm font-bold tracking-tight text-[#0A0A0B] leading-tight">
-                  {name}
-                </span>
-                <span className="mt-1 text-[11px] text-neutral-500 leading-tight">
-                  {role}
-                </span>
+        {/* Right Elevated White 3D Stack Tile Rows (Alternating Right -> Left -> Right Marquee) */}
+        <div className="min-w-0 helzerx-marquee-stage">
+          <div className="flex flex-col gap-6 sm:gap-7">
+            {STACK_ROWS.map((row) => (
+              <div key={row.id} className="helzerx-marquee-row">
+                <div
+                  className={`helzerx-marquee-track ${
+                    row.direction === 'right'
+                      ? 'helzerx-marquee-track-right'
+                      : 'helzerx-marquee-track-left'
+                  }`}
+                >
+                  {[0, 1].map((dupIndex) => (
+                    <div
+                      key={dupIndex}
+                      aria-hidden={dupIndex === 1 || undefined}
+                      className="helzerx-marquee-group"
+                    >
+                      {[0, 1].flatMap((cycle) =>
+                        row.tiles.map(({ name, role, icon: Icon }) => (
+                          <Surface3D
+                            key={`${row.id}-${dupIndex}-${cycle}-${name}`}
+                            intensity={12}
+                            animateEntrance={false}
+                            className="helzerx-marquee-tile rounded-2xl w-[168px] sm:w-[188px] shrink-0"
+                          >
+                            <div className="p-4 sm:p-5 h-full min-h-[116px] flex flex-col items-center justify-center text-center">
+                              <Icon className="w-5 h-5 text-[#0A0A0B] mb-2 shrink-0" aria-hidden="true" />
+                              <span className="text-xs sm:text-sm font-bold tracking-tight text-[#0A0A0B] leading-tight">
+                                {name}
+                              </span>
+                              <span className="mt-1 text-[11px] text-neutral-500 leading-tight">
+                                {role}
+                              </span>
+                            </div>
+                          </Surface3D>
+                        )),
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </Surface3D>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </section>
